@@ -1,2 +1,5 @@
 #ignore build
 build/
+
+#ignore root files!
+*.root
