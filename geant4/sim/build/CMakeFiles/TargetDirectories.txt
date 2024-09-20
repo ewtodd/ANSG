@@ -1,4 +1,0 @@
-/home/e-work/ANSG/software/g4practice/sim/build/CMakeFiles/sim.dir
-/home/e-work/ANSG/software/g4practice/sim/build/CMakeFiles/GeSimulation.dir
-/home/e-work/ANSG/software/g4practice/sim/build/CMakeFiles/edit_cache.dir
-/home/e-work/ANSG/software/g4practice/sim/build/CMakeFiles/rebuild_cache.dir

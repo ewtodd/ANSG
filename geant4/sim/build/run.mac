@@ -1,4 +1,0 @@
-/run/numberOfThreads 1
-/run/initialize
-/process/had/rdm/thresholdForVeryLongDecayTime 1.0e+60 year
-/run/beamOn 1000000
