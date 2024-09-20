@@ -70,6 +70,7 @@ TreeModule::partialEnergySpectrumHist(int lowerBound, int upperBound,
     hist->Fill(etemp);
   }
 
+  hist->Scale(1. / entries);
   hist->SetStats(0);
 
   return hist;

@@ -2,6 +2,7 @@
 #include "src/Analysis.cpp"
 
 void macro() {
+  gROOT->SetBatch(kTRUE);
   Analysis *analysis = new Analysis();
   analysis->loadFiles();
   analysis->drawFullHists();

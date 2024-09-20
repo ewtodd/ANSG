@@ -56,7 +56,7 @@ void Analysis::drawFullHists() {
   legend->AddEntry(histGeo2, "Geometry 2", "l");
   legend->AddEntry(histGeo3, "Geometry 3", "l");
   legend->AddEntry(histGeo4, "Geometry 4", "l");
-  legend->AddEntry(histGeo4, "Geometry 5", "l");
+  legend->AddEntry(histGeo5, "Geometry 5", "l");
   legend->Draw();
 
   // Update the canvas to show the drawings
@@ -107,7 +107,7 @@ void Analysis::drawPartialHists(int lowerBound, int upperBound) {
   legend->AddEntry(histGeo2, "Geometry 2", "l");
   legend->AddEntry(histGeo3, "Geometry 3", "l");
   legend->AddEntry(histGeo4, "Geometry 4", "l");
-  legend->AddEntry(histGeo4, "Geometry 5", "l");
+  legend->AddEntry(histGeo5, "Geometry 5", "l");
   legend->Draw();
 
   // Update the canvas to show the drawings
