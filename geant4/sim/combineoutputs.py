@@ -1,5 +1,6 @@
 import ROOT
 import os
+import sys
 
 def combine_root_files(output_file, input_files):
     # Create a TChain for each tree type
@@ -36,7 +37,9 @@ def combine_root_files(output_file, input_files):
 input_files = [f'build/output0_t{i}.root' for i in range(16)]
 
 # Output ROOT file
-output_file = 'combined_output.root'
+if (len(sys.argv) != 1):
+    output_file = sys.argv[1] + '.root'
+else: output_file = 'combined_output.root'
 
 # Combine the files
 combine_root_files(output_file, input_files)
