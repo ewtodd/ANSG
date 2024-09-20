@@ -24,9 +24,9 @@ G4bool SensitiveDetector::ProcessHits(G4Step *aStep,
 
   G4AnalysisManager *man = G4AnalysisManager::Instance();
   man->FillNtupleIColumn(0, 0, evt);
-  man->FillNtupleDColumn(0, 1, posDetector[0]);
-  man->FillNtupleDColumn(0, 2, posDetector[1]);
-  man->FillNtupleDColumn(0, 3, posDetector[2]);
+  // man->FillNtupleDColumn(0, 1, posDetector[0]);
+  // man->FillNtupleDColumn(0, 2, posDetector[1]);
+  // man->FillNtupleDColumn(0, 3, posDetector[2]);
   man->AddNtupleRow(0);
 
   return true;

@@ -9,7 +9,7 @@ void EventAction::EndOfEventAction(const G4Event *) {
 
   G4AnalysisManager *man = G4AnalysisManager::Instance();
 
-  if (fEdep / keV > 0.1) {
+  if (fEdep > 0.0000001) {
     man->FillNtupleDColumn(1, 0, fEdep);
     man->AddNtupleRow(1);
   }

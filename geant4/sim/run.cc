@@ -4,9 +4,9 @@ RunAction::RunAction() {
   G4AnalysisManager *man = G4AnalysisManager::Instance();
   man->CreateNtuple("Hits", "Hits");
   man->CreateNtupleIColumn("fEvent");
-  man->CreateNtupleDColumn("fX");
-  man->CreateNtupleDColumn("fY");
-  man->CreateNtupleDColumn("fZ");
+  // man->CreateNtupleDColumn("fX");
+  // man->CreateNtupleDColumn("fY");
+  // man->CreateNtupleDColumn("fZ");
   man->FinishNtuple(0);
 
   man->CreateNtuple("Energy", "Energy");
