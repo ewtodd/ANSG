@@ -49,7 +49,7 @@ G4VPhysicalVolume *DetectorConstruction::Construct() {
   fScoringVolume = logicDetectorCZT;
 
   G4VPhysicalVolume *physCZT = new G4PVPlacement(
-      0, G4ThreeVector(offset * cm, 0., 10 * cm), logicDetectorCZT, "physCZT",
+      0, G4ThreeVector(-offset * cm, 0., 10 * cm), logicDetectorCZT, "physCZT",
       logicWorld, false, 0, true);
 
   G4VPhysicalVolume *physGe =

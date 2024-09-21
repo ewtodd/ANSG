@@ -35,7 +35,29 @@ void Analysis::drawFullHists() {
   TH1D *histGeo4 = tmGeo4->energySpectrumHist(tmGeo4->getFilename());
   TH1D *histGeo5 = tmGeo5->energySpectrumHist(tmGeo5->getFilename());
 
+  // Find the histogram with the largest maximum bin content
+  double maxBinContent = std::max(
+      {histGeo0->GetMaximum(), histGeo1->GetMaximum(), histGeo2->GetMaximum(),
+       histGeo3->GetMaximum(), histGeo4->GetMaximum(), histGeo5->GetMaximum()});
+
+  double yAxisMax = maxBinContent * 1.1;
+
   TCanvas *c1 = new TCanvas("c1", "c1");
+  // Set fill colors and styles
+  histGeo0->SetLineColor(kRed);
+
+  histGeo1->SetLineColor(kBlue);
+
+  histGeo2->SetLineColor(kGreen);
+
+  histGeo3->SetLineColor(kMagenta);
+
+  histGeo4->SetLineColor(kOrange);
+
+  histGeo5->SetLineColor(kViolet);
+
+  histGeo0->GetYaxis()->SetRangeUser(0, yAxisMax);
+  // Draw histograms with fill styles
   histGeo0->Draw();
   histGeo1->Draw("SAME");
   histGeo2->Draw("SAME");
@@ -43,12 +65,15 @@ void Analysis::drawFullHists() {
   histGeo4->Draw("SAME");
   histGeo5->Draw("SAME");
 
-  histGeo0->SetLineColor(kRed);
-  histGeo1->SetLineColor(kBlue);
-  histGeo2->SetLineColor(kGreen);
-  histGeo3->SetLineColor(kMagenta);
-  histGeo4->SetLineColor(kOrange);
-  histGeo5->SetLineColor(kViolet);
+  // Create and draw vertical lines at specified values
+  std::vector<double> lineValues = {5850.97, 5867.12, 68.752};
+  for (double value : lineValues) {
+    TLine *line = new TLine(value, 0, value, yAxisMax);
+    line->SetLineColor(kBlack);
+    line->SetLineStyle(2); // Dashed line
+    line->Draw();
+  }
+
   TLegend *legend =
       new TLegend(0.7, 0.7, 0.9, 0.9); // Adjust the position as needed
   legend->AddEntry(histGeo0, "Geometry 0", "l");
@@ -72,7 +97,7 @@ void Analysis::drawFullHists() {
   delete histGeo5;
 }
 
-void Analysis::drawPartialHists(int lowerBound, int upperBound) {
+void Analysis::drawPartialHists(double lowerBound, double upperBound) {
   TH1D *histGeo0 = tmGeo0->partialEnergySpectrumHist(lowerBound, upperBound,
                                                      tmGeo0->getFilename());
   TH1D *histGeo1 = tmGeo1->partialEnergySpectrumHist(lowerBound, upperBound,
@@ -87,6 +112,22 @@ void Analysis::drawPartialHists(int lowerBound, int upperBound) {
                                                      tmGeo5->getFilename());
 
   TCanvas *c1 = new TCanvas("c1", "c1");
+  // Set fill colors and styles
+  histGeo0->SetLineColor(kRed);
+  histGeo1->SetLineColor(kBlue);
+  histGeo2->SetLineColor(kGreen);
+  histGeo3->SetLineColor(kMagenta);
+  histGeo4->SetLineColor(kOrange);
+  histGeo5->SetLineColor(kViolet);
+
+  double maxBinContent = std::max(
+      {histGeo0->GetMaximum(), histGeo1->GetMaximum(), histGeo2->GetMaximum(),
+       histGeo3->GetMaximum(), histGeo4->GetMaximum(), histGeo5->GetMaximum()});
+
+  double yAxisMax = maxBinContent * 1.1;
+  histGeo0->GetYaxis()->SetRangeUser(0, yAxisMax);
+
+  // Draw histograms with fill styles
   histGeo0->Draw();
   histGeo1->Draw("SAME");
   histGeo2->Draw("SAME");
@@ -94,12 +135,17 @@ void Analysis::drawPartialHists(int lowerBound, int upperBound) {
   histGeo4->Draw("SAME");
   histGeo5->Draw("SAME");
 
-  histGeo0->SetLineColor(kRed);
-  histGeo1->SetLineColor(kBlue);
-  histGeo2->SetLineColor(kGreen);
-  histGeo3->SetLineColor(kMagenta);
-  histGeo4->SetLineColor(kOrange);
-  histGeo5->SetLineColor(kViolet);
+  // Create and draw vertical lines at specified values
+  std::vector<double> lineValues = {5850.97, 5867.12, 68.752};
+  for (double value : lineValues) {
+    if (lowerBound <= value && value <= upperBound) {
+      TLine *line = new TLine(value, 0, value, yAxisMax);
+      line->SetLineColor(kBlack);
+      line->SetLineStyle(2); // Dashed line
+      line->Draw();
+    }
+  }
+
   TLegend *legend =
       new TLegend(0.7, 0.7, 0.9, 0.9); // Adjust the position as needed
   legend->AddEntry(histGeo0, "Geometry 0", "l");
@@ -112,7 +158,7 @@ void Analysis::drawPartialHists(int lowerBound, int upperBound) {
 
   // Update the canvas to show the drawings
   c1->Update();
-  TString fileName = Form("partialHist_%d_%d.png", lowerBound, upperBound);
+  TString fileName = Form("partialHist_%.2f_%.2f.png", lowerBound, upperBound);
   c1->Print(fileName);
 
   delete c1;

@@ -52,7 +52,7 @@ TH1D *TreeModule::energySpectrumHist(const char *fileExtension = ".png") {
 }
 
 TH1D *
-TreeModule::partialEnergySpectrumHist(int lowerBound, int upperBound,
+TreeModule::partialEnergySpectrumHist(double lowerBound, double upperBound,
                                       const char *fileExtension = ".png") {
   double eDep;
 
@@ -60,17 +60,17 @@ TreeModule::partialEnergySpectrumHist(int lowerBound, int upperBound,
 
   int entries = branchEnergyDep->GetEntries();
   TH1D *hist =
-      new TH1D("hist", "; Energy (keV);Entries", 256, lowerBound, upperBound);
+      new TH1D("hist", "; Energy (keV);Entries", 128, lowerBound, upperBound);
 
   branchEnergyDep->SetAddress(&eDep);
 
   for (int i = 0; i < entries; i++) {
     branchEnergyDep->GetEntry(i);
     etemp = eDep * 1000;
-    hist->Fill(etemp);
+    if (lowerBound <= etemp && etemp <= upperBound) {
+      hist->Fill(etemp);
+    }
   }
-
-  hist->Scale(1. / entries);
   hist->SetStats(0);
 
   return hist;

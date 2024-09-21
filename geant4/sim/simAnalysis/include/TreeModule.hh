@@ -33,7 +33,7 @@ public:
   TString getFormattedFilename(std::string filePrefix,
                                const char *fileExtension);
   TH1D *energySpectrumHist(const char *fileExtension);
-  TH1D *partialEnergySpectrumHist(int lowerBound, int upperBound,
+  TH1D *partialEnergySpectrumHist(double lowerBound, double upperBound,
                                   const char *fileExtension);
 };
 

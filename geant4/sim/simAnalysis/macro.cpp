@@ -6,7 +6,8 @@ void macro() {
   Analysis *analysis = new Analysis();
   analysis->loadFiles();
   analysis->drawFullHists();
-  analysis->drawPartialHists(0, 100);
-
+  analysis->drawPartialHists(50, 80);
+  analysis->drawPartialHists(68.7, 68.8);
+  analysis->drawPartialHists(5840, 5885);
   delete analysis;
 }

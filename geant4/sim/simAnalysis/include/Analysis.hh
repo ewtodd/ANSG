@@ -3,6 +3,7 @@
 
 #include "../src/TreeModule.cpp"
 #include "TLegend.h"
+#include "TLine.h"
 #include "TreeModule.hh"
 
 class Analysis {
@@ -11,7 +12,7 @@ public:
   ~Analysis();
   void loadFiles();
   void drawFullHists();
-  void drawPartialHists(int lowerBound, int upperBound);
+  void drawPartialHists(double lowerBound, double upperBound);
   void analysis();
 
 private:
