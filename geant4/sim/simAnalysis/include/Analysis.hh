@@ -22,6 +22,7 @@ private:
   TreeModule *tmGeo3;
   TreeModule *tmGeo4;
   TreeModule *tmGeo5;
+  TreeModule *tmGeo6;
 };
 
 #endif

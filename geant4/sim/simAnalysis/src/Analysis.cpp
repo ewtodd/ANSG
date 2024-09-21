@@ -7,6 +7,7 @@ Analysis::Analysis() {
   tmGeo3 = nullptr;
   tmGeo4 = nullptr;
   tmGeo5 = nullptr;
+  tmGeo6 = nullptr;
 }
 
 Analysis::~Analysis() {
@@ -16,6 +17,7 @@ Analysis::~Analysis() {
   delete tmGeo3;
   delete tmGeo4;
   delete tmGeo5;
+  delete tmGeo6;
 }
 
 void Analysis::loadFiles() {
@@ -25,6 +27,7 @@ void Analysis::loadFiles() {
   tmGeo3 = new TreeModule("../geo3.root");
   tmGeo4 = new TreeModule("../geo4.root");
   tmGeo5 = new TreeModule("../geo5.root");
+  tmGeo6 = new TreeModule("../geo6.root");
 }
 
 void Analysis::drawFullHists() {
@@ -34,27 +37,25 @@ void Analysis::drawFullHists() {
   TH1D *histGeo3 = tmGeo3->energySpectrumHist(tmGeo3->getFilename());
   TH1D *histGeo4 = tmGeo4->energySpectrumHist(tmGeo4->getFilename());
   TH1D *histGeo5 = tmGeo5->energySpectrumHist(tmGeo5->getFilename());
+  TH1D *histGeo6 = tmGeo5->energySpectrumHist(tmGeo6->getFilename());
 
   // Find the histogram with the largest maximum bin content
   double maxBinContent = std::max(
       {histGeo0->GetMaximum(), histGeo1->GetMaximum(), histGeo2->GetMaximum(),
-       histGeo3->GetMaximum(), histGeo4->GetMaximum(), histGeo5->GetMaximum()});
+       histGeo3->GetMaximum(), histGeo4->GetMaximum(), histGeo5->GetMaximum(),
+       histGeo6->GetMaximum()});
 
   double yAxisMax = maxBinContent * 1.1;
 
   TCanvas *c1 = new TCanvas("c1", "c1");
   // Set fill colors and styles
   histGeo0->SetLineColor(kRed);
-
   histGeo1->SetLineColor(kBlue);
-
   histGeo2->SetLineColor(kGreen);
-
   histGeo3->SetLineColor(kMagenta);
-
   histGeo4->SetLineColor(kOrange);
-
   histGeo5->SetLineColor(kViolet);
+  histGeo6->SetLineColor(kCyan);
 
   histGeo0->GetYaxis()->SetRangeUser(0, yAxisMax);
   // Draw histograms with fill styles
@@ -64,6 +65,7 @@ void Analysis::drawFullHists() {
   histGeo3->Draw("SAME");
   histGeo4->Draw("SAME");
   histGeo5->Draw("SAME");
+  histGeo6->Draw("SAME");
 
   // Create and draw vertical lines at specified values
   std::vector<double> lineValues = {5850.97, 5867.12, 68.752};
@@ -82,6 +84,7 @@ void Analysis::drawFullHists() {
   legend->AddEntry(histGeo3, "Geometry 3", "l");
   legend->AddEntry(histGeo4, "Geometry 4", "l");
   legend->AddEntry(histGeo5, "Geometry 5", "l");
+  legend->AddEntry(histGeo6, "Geometry 6", "l");
   legend->Draw();
 
   // Update the canvas to show the drawings
@@ -95,6 +98,7 @@ void Analysis::drawFullHists() {
   delete histGeo3;
   delete histGeo4;
   delete histGeo5;
+  delete histGeo6;
 }
 
 void Analysis::drawPartialHists(double lowerBound, double upperBound) {
@@ -110,6 +114,8 @@ void Analysis::drawPartialHists(double lowerBound, double upperBound) {
                                                      tmGeo4->getFilename());
   TH1D *histGeo5 = tmGeo5->partialEnergySpectrumHist(lowerBound, upperBound,
                                                      tmGeo5->getFilename());
+  TH1D *histGeo6 = tmGeo6->partialEnergySpectrumHist(lowerBound, upperBound,
+                                                     tmGeo6->getFilename());
 
   TCanvas *c1 = new TCanvas("c1", "c1");
   // Set fill colors and styles
@@ -119,10 +125,12 @@ void Analysis::drawPartialHists(double lowerBound, double upperBound) {
   histGeo3->SetLineColor(kMagenta);
   histGeo4->SetLineColor(kOrange);
   histGeo5->SetLineColor(kViolet);
+  histGeo6->SetLineColor(kCyan);
 
   double maxBinContent = std::max(
       {histGeo0->GetMaximum(), histGeo1->GetMaximum(), histGeo2->GetMaximum(),
-       histGeo3->GetMaximum(), histGeo4->GetMaximum(), histGeo5->GetMaximum()});
+       histGeo3->GetMaximum(), histGeo4->GetMaximum(), histGeo5->GetMaximum(),
+       histGeo6->GetMaximum()});
 
   double yAxisMax = maxBinContent * 1.1;
   histGeo0->GetYaxis()->SetRangeUser(0, yAxisMax);
@@ -134,6 +142,7 @@ void Analysis::drawPartialHists(double lowerBound, double upperBound) {
   histGeo3->Draw("SAME");
   histGeo4->Draw("SAME");
   histGeo5->Draw("SAME");
+  histGeo6->Draw("SAME");
 
   // Create and draw vertical lines at specified values
   std::vector<double> lineValues = {5850.97, 5867.12, 68.752};
@@ -154,6 +163,7 @@ void Analysis::drawPartialHists(double lowerBound, double upperBound) {
   legend->AddEntry(histGeo3, "Geometry 3", "l");
   legend->AddEntry(histGeo4, "Geometry 4", "l");
   legend->AddEntry(histGeo5, "Geometry 5", "l");
+  legend->AddEntry(histGeo6, "Geometry 6", "l");
   legend->Draw();
 
   // Update the canvas to show the drawings
@@ -168,4 +178,5 @@ void Analysis::drawPartialHists(double lowerBound, double upperBound) {
   delete histGeo3;
   delete histGeo4;
   delete histGeo5;
+  delete histGeo6;
 }

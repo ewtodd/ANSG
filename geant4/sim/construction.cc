@@ -28,9 +28,10 @@ G4VPhysicalVolume *DetectorConstruction::Construct() {
   // G4double xsize2 = sqrt(2) / 8;
   // G4double xsize3 = sqrt(2) / 16;
   // G4double xsize4 = sqrt(2) / 32;
-  G4double xsize5 = sqrt(2) / 64;
+  // G4double xsize5 = sqrt(2) / 64;
+  G4double xsize6 = sqrt(2) / 128;
   // make the germanium!
-  G4Box *solidGe = new G4Box("solidGe", xsize5 * cm, size * cm, size * cm);
+  G4Box *solidGe = new G4Box("solidGe", xsize6 * cm, size * cm, size * cm);
 
   G4LogicalVolume *logicWorld =
       new G4LogicalVolume(solidWorld, worldMat, "logicWorld");
@@ -42,14 +43,14 @@ G4VPhysicalVolume *DetectorConstruction::Construct() {
   G4VPhysicalVolume *physWorld = new G4PVPlacement(
       0, G4ThreeVector(0., 0., 0.), logicWorld, "physWorld", 0, false, 0, true);
 
-  G4double offset = xsize5 + 1;
+  G4double offset = xsize6 + 1;
   logicDetectorHPGe = new G4LogicalVolume(solidGe, Ge, "logicDetectorHPGe");
   logicDetectorCZT = new G4LogicalVolume(solidCZT, CZT, "logicDetectorCZT");
 
   fScoringVolume = logicDetectorCZT;
 
   G4VPhysicalVolume *physCZT = new G4PVPlacement(
-      0, G4ThreeVector(-offset * cm, 0., 10 * cm), logicDetectorCZT, "physCZT",
+      0, G4ThreeVector(offset * cm, 0., 10 * cm), logicDetectorCZT, "physCZT",
       logicWorld, false, 0, true);
 
   G4VPhysicalVolume *physGe =
