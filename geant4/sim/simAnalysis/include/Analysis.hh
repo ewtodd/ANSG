@@ -11,8 +11,8 @@ public:
   Analysis();
   ~Analysis();
   void loadFiles();
-  void drawFullHists();
-  void drawPartialHists(double lowerBound, double upperBound);
+  void drawFullHists(bool isBroadened);
+  void drawPartialHists(double lowerBound, double upperBound, bool isBroadened);
   void analysis();
 
 private:

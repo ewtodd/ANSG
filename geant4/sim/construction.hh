@@ -8,7 +8,9 @@
 #include "G4LogicalVolume.hh"
 #include "G4NistManager.hh"
 #include "G4PVPlacement.hh"
+#include "G4RotationMatrix.hh"
 #include "G4SystemOfUnits.hh"
+#include "G4Tubs.hh"
 #include "G4VPhysicalVolume.hh"
 #include "G4VUserDetectorConstruction.hh"
 #include "cmath"
@@ -19,14 +21,16 @@ public:
   DetectorConstruction();
   ~DetectorConstruction();
 
-  G4LogicalVolume *GetScoringVolume() const { return fScoringVolume; }
+  G4LogicalVolume *GetScoringVolumeCZT() const { return fScoringVolumeCZT; }
+  G4LogicalVolume *GetScoringVolumeHPGe() const { return fScoringVolumeHPGe; }
 
   virtual G4VPhysicalVolume *Construct();
 
 private:
   G4LogicalVolume *logicDetectorHPGe;
   G4LogicalVolume *logicDetectorCZT;
-  G4LogicalVolume *fScoringVolume;
+  G4LogicalVolume *fScoringVolumeCZT;
+  G4LogicalVolume *fScoringVolumeHPGe;
   virtual void ConstructSDandField();
 };
 

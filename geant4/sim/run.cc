@@ -9,9 +9,13 @@ RunAction::RunAction() {
   // man->CreateNtupleDColumn("fZ");
   man->FinishNtuple(0);
 
-  man->CreateNtuple("Energy", "Energy");
-  man->CreateNtupleDColumn("fEdep");
+  man->CreateNtuple("EnergyCZT", "EnergyCZT");
+  man->CreateNtupleDColumn("fEdepCZT");
   man->FinishNtuple(1);
+
+  man->CreateNtuple("EnergyHPGe", "EnergyHPGe");
+  man->CreateNtupleDColumn("fEdepHPGe");
+  man->FinishNtuple(2);
 }
 RunAction::~RunAction() {}
 void RunAction::BeginOfRunAction(const G4Run *run) {

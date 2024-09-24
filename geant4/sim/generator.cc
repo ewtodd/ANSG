@@ -9,7 +9,6 @@ PrimaryGenerator::PrimaryGenerator() {
   G4ParticleTable *particleTable = G4ParticleTable::GetParticleTable();
   G4String particleName = "neutron";
   G4ParticleDefinition *particle = particleTable->FindParticle(particleName);
-
   fParticleSource->SetParticleDefinition(particle);
 }
 

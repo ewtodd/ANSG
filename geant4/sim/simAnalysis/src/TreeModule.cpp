@@ -30,13 +30,14 @@ TreeModule::~TreeModule() {
   std::cout << "Done." << std::endl;
 }
 
-TH1D *TreeModule::energySpectrumHist(const char *fileExtension = ".png") {
+TH1D *TreeModule::energySpectrumHist(const char *fileExtension = ".png",
+                                     bool isBroadened = false) {
   double eDep;
 
   double etemp;
 
   int entries = branchEnergyDep->GetEntries();
-  TH1D *hist = new TH1D("hist", "; Energy (keV);Entries", 256, 0, 6e3);
+  TH1D *hist = new TH1D("hist", "; Energy (keV);Entries", 256, -100, 6e3);
 
   branchEnergyDep->SetAddress(&eDep);
 
@@ -51,9 +52,10 @@ TH1D *TreeModule::energySpectrumHist(const char *fileExtension = ".png") {
   return hist;
 }
 
-TH1D *
-TreeModule::partialEnergySpectrumHist(double lowerBound, double upperBound,
-                                      const char *fileExtension = ".png") {
+TH1D *TreeModule::partialEnergySpectrumHist(double lowerBound,
+                                            double upperBound,
+                                            const char *fileExtension = ".png",
+                                            bool isBroadened = false) {
   double eDep;
   double etemp;
   TH1D *hist = nullptr;

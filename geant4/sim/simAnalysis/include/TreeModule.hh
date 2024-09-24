@@ -32,9 +32,9 @@ public:
   const char *getFilename() { return aFilename; };
   TString getFormattedFilename(std::string filePrefix,
                                const char *fileExtension);
-  TH1D *energySpectrumHist(const char *fileExtension);
+  TH1D *energySpectrumHist(const char *fileExtension, bool isBroadened);
   TH1D *partialEnergySpectrumHist(double lowerBound, double upperBound,
-                                  const char *fileExtension);
+                                  const char *fileExtension, bool isBroadened);
 };
 
 #endif
