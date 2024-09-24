@@ -21,24 +21,25 @@ Analysis::~Analysis() {
 }
 
 void Analysis::loadFiles() {
-  tmGeo0 = new TreeModule("../geo0.root");
-  tmGeo1 = new TreeModule("../geo1.root");
-  tmGeo2 = new TreeModule("../geo2.root");
-  tmGeo3 = new TreeModule("../geo3.root");
-  // tmGeo4 = new TreeModule("../geo4.root");
-  // tmGeo5 = new TreeModule("../geo5.root");
-  // tmGeo6 = new TreeModule("../geo6.root");
+  tmGeo0 = new TreeModule("../geoCyl0.root");
+  tmGeo1 = new TreeModule("../geoCyl1.root");
+  tmGeo2 = new TreeModule("../geoCyl2.root");
+  tmGeo3 = new TreeModule("../geoCyl3.root");
+  // tmGeo4 = new TreeModule("../geoCyl4.root");
+  // tmGeo5 = new TreeModule("../geoCyl5.root");
+  // tmGeo6 = new TreeModule("../geoCyl6.root");
 }
 
-void Analysis::drawFullHists(bool isBroadened = false) {
-  TH1D *histGeo0 =
-      tmGeo0->energySpectrumHist(tmGeo0->getFilename(), isBroadened);
-  TH1D *histGeo1 =
-      tmGeo1->energySpectrumHist(tmGeo1->getFilename(), isBroadened);
-  TH1D *histGeo2 =
-      tmGeo2->energySpectrumHist(tmGeo2->getFilename(), isBroadened);
-  TH1D *histGeo3 =
-      tmGeo3->energySpectrumHist(tmGeo3->getFilename(), isBroadened);
+void Analysis::drawFullHists(const TString detectorName,
+                             bool isBroadened = false) {
+  TH1D *histGeo0 = tmGeo0->energySpectrumHist(
+      detectorName, tmGeo0->getFilename(), isBroadened);
+  TH1D *histGeo1 = tmGeo1->energySpectrumHist(
+      detectorName, tmGeo1->getFilename(), isBroadened);
+  TH1D *histGeo2 = tmGeo2->energySpectrumHist(
+      detectorName, tmGeo2->getFilename(), isBroadened);
+  TH1D *histGeo3 = tmGeo3->energySpectrumHist(
+      detectorName, tmGeo3->getFilename(), isBroadened);
   // TH1D *histGeo4 = tmGeo4->energySpectrumHist(tmGeo4->getFilename());
   // TH1D *histGeo5 = tmGeo5->energySpectrumHist(tmGeo5->getFilename());
   // TH1D *histGeo6 = tmGeo5->energySpectrumHist(tmGeo6->getFilename());
@@ -107,7 +108,7 @@ void Analysis::drawFullHists(bool isBroadened = false) {
 
   // Update the canvas to show the drawings
   c1->Update();
-  c1->Print("fullrange.png");
+  c1->Print("fullrange" + detectorName + ".png");
 
   delete c1;
   delete histGeo0;
@@ -119,16 +120,16 @@ void Analysis::drawFullHists(bool isBroadened = false) {
   // delete histGeo6;
 }
 
-void Analysis::drawPartialHists(double lowerBound, double upperBound,
-                                bool isBroadened = false) {
+void Analysis::drawPartialHists(const TString detectorName, double lowerBound,
+                                double upperBound, bool isBroadened = false) {
   TH1D *histGeo0 = tmGeo0->partialEnergySpectrumHist(
-      lowerBound, upperBound, tmGeo0->getFilename(), isBroadened);
+      detectorName, lowerBound, upperBound, tmGeo0->getFilename(), isBroadened);
   TH1D *histGeo1 = tmGeo1->partialEnergySpectrumHist(
-      lowerBound, upperBound, tmGeo1->getFilename(), isBroadened);
+      detectorName, lowerBound, upperBound, tmGeo1->getFilename(), isBroadened);
   TH1D *histGeo2 = tmGeo2->partialEnergySpectrumHist(
-      lowerBound, upperBound, tmGeo2->getFilename(), isBroadened);
+      detectorName, lowerBound, upperBound, tmGeo2->getFilename(), isBroadened);
   TH1D *histGeo3 = tmGeo3->partialEnergySpectrumHist(
-      lowerBound, upperBound, tmGeo3->getFilename(), isBroadened);
+      detectorName, lowerBound, upperBound, tmGeo3->getFilename(), isBroadened);
   // TH1D *histGeo4 = tmGeo4->partialEnergySpectrumHist(lowerBound, upperBound,
   // tmGeo4->getFilename());
   // TH1D *histGeo5 = tmGeo5->partialEnergySpectrumHist(lowerBound, upperBound,
@@ -212,9 +213,9 @@ void Analysis::drawPartialHists(double lowerBound, double upperBound,
   // show the drawings
   c1->Update();
   TString fileName = Form("partialHist_%."
-                          "2f_%.2f.png",
+                          "2f_%.2f",
                           lowerBound, upperBound);
-  c1->Print(fileName);
+  c1->Print(fileName + detectorName + ".png");
 
   delete c1;
   delete histGeo0;

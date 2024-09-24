@@ -5,16 +5,20 @@ TreeModule::TreeModule(const char *filename) {
   aFile = new TFile(filename, "READ");
   if (aFile->IsOpen()) {
     hitsTree = static_cast<TTree *>(aFile->Get("Hits;"));
-    energyTree = static_cast<TTree *>(aFile->Get("Energy;"));
-    branchEnergyDep = energyTree->GetBranch("fEdep");
+    energyTreeCZT = static_cast<TTree *>(aFile->Get("EnergyCZT;"));
+    energyTreeHPGe = static_cast<TTree *>(aFile->Get("EnergyHPGe;"));
+    branchEnergyDepCZT = energyTreeCZT->GetBranch("fEdepCZT");
+    branchEnergyDepHPGe = energyTreeHPGe->GetBranch("fEdepHPGe");
     branchEvents = hitsTree->GetBranch("fEvents");
   } else {
     // Handle the error if file did not open correctly
     std::cerr << "Failed to open the file: " << filename << std::endl;
     aFile = nullptr;
     hitsTree = nullptr;
-    energyTree = nullptr;
-    branchEnergyDep = nullptr;
+    energyTreeCZT = nullptr;
+    energyTreeHPGe = nullptr;
+    branchEnergyDepCZT = nullptr;
+    branchEnergyDepHPGe = nullptr;
     branchEvents = nullptr;
   }
 }
@@ -30,56 +34,98 @@ TreeModule::~TreeModule() {
   std::cout << "Done." << std::endl;
 }
 
-TH1D *TreeModule::energySpectrumHist(const char *fileExtension = ".png",
+TH1D *TreeModule::energySpectrumHist(const TString detectorName,
+                                     const char *fileExtension = ".png",
                                      bool isBroadened = false) {
   double eDep;
 
   double etemp;
+  int entries = 0;
+  TH1D *hist = nullptr;
 
-  int entries = branchEnergyDep->GetEntries();
-  TH1D *hist = new TH1D("hist", "; Energy (keV);Entries", 256, -100, 6e3);
+  if (detectorName == "CZT") {
+    int entries = branchEnergyDepCZT->GetEntries();
+    hist = new TH1D("hist", "; Energy (keV);Entries", 256, -100, 6e3);
+    branchEnergyDepCZT->SetAddress(&eDep);
 
-  branchEnergyDep->SetAddress(&eDep);
+    for (int i = 0; i < entries; i++) {
+      branchEnergyDepCZT->GetEntry(i);
+      etemp = eDep * 1000;
+      hist->Fill(etemp);
+    }
+    hist->SetStats(0);
+  } else if (detectorName == "HPGe") {
 
-  for (int i = 0; i < entries; i++) {
-    branchEnergyDep->GetEntry(i);
-    etemp = eDep * 1000;
-    hist->Fill(etemp);
+    int entries = branchEnergyDepHPGe->GetEntries();
+    hist = new TH1D("hist", "; Energy (keV);Entries", 256, -100, 6e3);
+    branchEnergyDepHPGe->SetAddress(&eDep);
+
+    for (int i = 0; i < entries; i++) {
+      branchEnergyDepHPGe->GetEntry(i);
+      etemp = eDep * 1000;
+      hist->Fill(etemp);
+    }
+    hist->SetStats(0);
   }
-
-  hist->SetStats(0);
-
   return hist;
 }
 
-TH1D *TreeModule::partialEnergySpectrumHist(double lowerBound,
+TH1D *TreeModule::partialEnergySpectrumHist(const TString detectorName,
+                                            double lowerBound,
                                             double upperBound,
                                             const char *fileExtension = ".png",
                                             bool isBroadened = false) {
   double eDep;
   double etemp;
   TH1D *hist = nullptr;
+  int entries = 0;
 
   double diff = upperBound - lowerBound;
 
-  int entries = branchEnergyDep->GetEntries();
-  if (diff >= 500) {
-    hist =
-        new TH1D("hist", "; Energy (keV);Entries", 256, lowerBound, upperBound);
-  } else {
-    hist =
-        new TH1D("hist", "; Energy (keV);Entries", 128, lowerBound, upperBound);
-  }
-  branchEnergyDep->SetAddress(&eDep);
+  if (detectorName == "CZT") {
+    int entries = branchEnergyDepCZT->GetEntries();
 
-  for (int i = 0; i < entries; i++) {
-    branchEnergyDep->GetEntry(i);
-    etemp = eDep * 1000;
-    if (lowerBound <= etemp && etemp <= upperBound) {
-      hist->Fill(etemp);
+    if (diff >= 500) {
+      hist = new TH1D("hist", "; Energy (keV);Entries", 256, lowerBound,
+                      upperBound);
+    } else {
+      hist = new TH1D("hist", "; Energy (keV);Entries", 128, lowerBound,
+                      upperBound);
     }
+
+    branchEnergyDepCZT->SetAddress(&eDep);
+
+    for (int i = 0; i < entries; i++) {
+      branchEnergyDepCZT->GetEntry(i);
+      etemp = eDep * 1000;
+      if (lowerBound <= etemp && etemp <= upperBound) {
+        hist->Fill(etemp);
+      }
+    }
+    hist->SetStats(0);
+  } else if (detectorName == "HPGe") {
+
+    int entries = branchEnergyDepHPGe->GetEntries();
+
+    if (diff >= 500) {
+      hist = new TH1D("hist", "; Energy (keV);Entries", 256, lowerBound,
+                      upperBound);
+    } else {
+      hist = new TH1D("hist", "; Energy (keV);Entries", 128, lowerBound,
+                      upperBound);
+    }
+
+    branchEnergyDepHPGe->SetAddress(&eDep);
+
+    for (int i = 0; i < entries; i++) {
+      branchEnergyDepHPGe->GetEntry(i);
+      etemp = eDep * 1000;
+      if (lowerBound <= etemp && etemp <= upperBound) {
+        hist->Fill(etemp);
+      }
+    }
+    hist->SetStats(0);
   }
-  hist->SetStats(0);
 
   return hist;
 }

@@ -16,8 +16,10 @@ class TreeModule {
 private:
   TFile *aFile;
   TTree *hitsTree;
-  TTree *energyTree;
-  TBranch *branchEnergyDep;
+  TTree *energyTreeCZT;
+  TTree *energyTreeHPGe;
+  TBranch *branchEnergyDepCZT;
+  TBranch *branchEnergyDepHPGe;
   TBranch *branchEvents;
   const char *aFilename;
 
@@ -26,15 +28,19 @@ public:
   ~TreeModule();
   TFile *getAFile() const { return aFile; };
   TTree *getHitsTree() const { return hitsTree; };
-  TTree *getEnergyTree() const { return energyTree; };
-  TBranch *getBranchEnergy() const { return branchEnergyDep; };
+  TTree *getEnergyTreeCZT() const { return energyTreeCZT; };
+  TTree *getEnergyTreeHPGe() const { return energyTreeHPGe; };
+  TBranch *getBranchEnergyCZT() const { return branchEnergyDepCZT; };
+  TBranch *getBranchEnergyHPGe() const { return branchEnergyDepHPGe; };
   TBranch *getBranchEvents() const { return branchEvents; };
   const char *getFilename() { return aFilename; };
   TString getFormattedFilename(std::string filePrefix,
                                const char *fileExtension);
-  TH1D *energySpectrumHist(const char *fileExtension, bool isBroadened);
-  TH1D *partialEnergySpectrumHist(double lowerBound, double upperBound,
-                                  const char *fileExtension, bool isBroadened);
+  TH1D *energySpectrumHist(const TString detectorName,
+                           const char *fileExtension, bool isBroadened);
+  TH1D *partialEnergySpectrumHist(const TString detectorName, double lowerBound,
+                                  double upperBound, const char *fileExtension,
+                                  bool isBroadened);
 };
 
 #endif

@@ -11,8 +11,9 @@ public:
   Analysis();
   ~Analysis();
   void loadFiles();
-  void drawFullHists(bool isBroadened);
-  void drawPartialHists(double lowerBound, double upperBound, bool isBroadened);
+  void drawFullHists(const TString detectorName, bool isBroadened);
+  void drawPartialHists(const TString detectorName, double lowerBound,
+                        double upperBound, bool isBroadened);
   void analysis();
 
 private:
