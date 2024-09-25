@@ -21,13 +21,13 @@ Analysis::~Analysis() {
 }
 
 void Analysis::loadFiles() {
-  tmGeo0 = new TreeModule("../geoCyl0.root");
-  tmGeo1 = new TreeModule("../geoCyl1.root");
-  tmGeo2 = new TreeModule("../geoCyl2.root");
-  tmGeo3 = new TreeModule("../geoCyl3.root");
-  tmGeo4 = new TreeModule("../geoCyl3Vert.root");
-  // tmGeo5 = new TreeModule("../geoCyl5.root");
-  // tmGeo6 = new TreeModule("../geoCyl6.root");
+  tmGeo0 = new TreeModule("../Thin0.root");
+  tmGeo1 = new TreeModule("../Thin1.root");
+  tmGeo2 = new TreeModule("../Thin2.root");
+  tmGeo3 = new TreeModule("../Thin3.root");
+  // tmGeo4 = new TreeModule("../geoCyl3Vert.root");
+  //  tmGeo5 = new TreeModule("../geoCyl5.root");
+  //  tmGeo6 = new TreeModule("../geoCyl6.root");
 }
 
 void Analysis::drawFullHists(const TString detectorName,
@@ -40,8 +40,8 @@ void Analysis::drawFullHists(const TString detectorName,
       detectorName, tmGeo2->getFilename(), isBroadened);
   TH1D *histGeo3 = tmGeo3->energySpectrumHist(
       detectorName, tmGeo3->getFilename(), isBroadened);
-  TH1D *histGeo4 = tmGeo4->energySpectrumHist(
-      detectorName, tmGeo4->getFilename(), isBroadened);
+  // TH1D *histGeo4 = tmGeo4->energySpectrumHist(
+  //  detectorName, tmGeo4->getFilename(), isBroadened);
   // TH1D *histGeo5 = tmGeo5->energySpectrumHist(tmGeo5->getFilename());
   // TH1D *histGeo6 = tmGeo5->energySpectrumHist(tmGeo6->getFilename());
 
@@ -73,7 +73,7 @@ void Analysis::drawFullHists(const TString detectorName,
   histGeo2->SetLineWidth(lineWidth);
   histGeo3->SetLineColor(kMagenta);
   histGeo3->SetLineWidth(lineWidth);
-  histGeo4->SetLineColor(kOrange);
+  // histGeo4->SetLineColor(kOrange);
   // histGeo5->SetLineColor(kViolet);
   // histGeo6->SetLineColor(kCyan);
 
@@ -83,7 +83,7 @@ void Analysis::drawFullHists(const TString detectorName,
   histGeo1->Draw("SAME");
   histGeo2->Draw("SAME");
   histGeo3->Draw("SAME");
-  histGeo4->Draw("SAME");
+  // histGeo4->Draw("SAME");
   // histGeo5->Draw("SAME");
   // histGeo6->Draw("SAME");
 
@@ -102,21 +102,26 @@ void Analysis::drawFullHists(const TString detectorName,
   legend->AddEntry(histGeo1, "0.25 cm^{3}", "l");
   legend->AddEntry(histGeo2, "0.11 cm^{3}", "l");
   legend->AddEntry(histGeo3, "0.038 cm^{3}", "l");
-  legend->AddEntry(histGeo4, "0.038 cm^{3}, Vertical", "l");
+  // legend->AddEntry(histGeo4, "Geometry 4", "l");
   // legend->AddEntry(histGeo5, "Geometry 5", "l");
   // legend->AddEntry(histGeo6, "Geometry 6", "l");
   legend->Draw();
 
+  // Add the title using TLatex
+  TLatex *latex = new TLatex();
+  latex->SetNDC();
+  latex->SetTextSize(0.04);
+  latex->DrawLatex(0.5, 0.95, detectorName);
   // Update the canvas to show the drawings
   c1->Update();
-  c1->Print("fullrange" + detectorName + ".png");
+  c1->Print("fullrange" + detectorName + "_Thin.png");
 
   delete c1;
   delete histGeo0;
   delete histGeo1;
   delete histGeo2;
   delete histGeo3;
-  delete histGeo4;
+  // delete histGeo4;
   // delete histGeo5;
   // delete histGeo6;
 }
@@ -131,8 +136,8 @@ void Analysis::drawPartialHists(const TString detectorName, double lowerBound,
       detectorName, lowerBound, upperBound, tmGeo2->getFilename(), isBroadened);
   TH1D *histGeo3 = tmGeo3->partialEnergySpectrumHist(
       detectorName, lowerBound, upperBound, tmGeo3->getFilename(), isBroadened);
-  // TH1D *histGeo4 = tmGeo4->partialEnergySpectrumHist(lowerBound, upperBound,
-  // tmGeo4->getFilename());
+  // TH1D *histGeo4 = tmGeo4->partialEnergySpectrumHist(
+  // detectorName, lowerBound, upperBound, tmGeo4->getFilename());
   // TH1D *histGeo5 = tmGeo5->partialEnergySpectrumHist(lowerBound, upperBound,
   // tmGeo5->getFilename());
   //  TH1D *histGeo6 =  tmGeo6->partialEnergySpectrumHist(lowerBound,
@@ -156,7 +161,7 @@ void Analysis::drawPartialHists(const TString detectorName, double lowerBound,
   histGeo2->SetLineWidth(lineWidth);
   histGeo3->SetLineColor(kMagenta);
   histGeo3->SetLineWidth(lineWidth);
-  //  histGeo4->SetLineColor(kOrange);
+  // histGeo4->SetLineColor(kOrange);
   // histGeo5->SetLineColor(kViolet);
   //  histGeo6->SetLineColor(kCyan);
 
@@ -202,13 +207,18 @@ void Analysis::drawPartialHists(const TString detectorName, double lowerBound,
   legend->AddEntry(histGeo1, "0.25 cm^{3}", "l");
   legend->AddEntry(histGeo2, "0.11 cm^{3}", "l");
   legend->AddEntry(histGeo3, "0.038 cm^{3}", "l");
-  // legend->AddEntry(histGeo4,
-  // "Geometry 4", "l");
+  // legend->AddEntry(histGeo4, "Geometry 4", "l");
   // legend->AddEntry(histGeo5,
   // "Geometry 5", "l");
   // legend->AddEntry(histGeo6,
   // "Geometry 6", "l");
   legend->Draw();
+
+  // Add the title using TLatex
+  TLatex *latex = new TLatex();
+  latex->SetNDC();
+  latex->SetTextSize(0.04);
+  latex->DrawLatex(0.5, 0.95, detectorName);
 
   // Update the canvas to
   // show the drawings
@@ -216,7 +226,7 @@ void Analysis::drawPartialHists(const TString detectorName, double lowerBound,
   TString fileName = Form("partialHist_%."
                           "2f_%.2f",
                           lowerBound, upperBound);
-  c1->Print(fileName + detectorName + ".png");
+  c1->Print(fileName + detectorName + "_Thin.png");
 
   delete c1;
   delete histGeo0;

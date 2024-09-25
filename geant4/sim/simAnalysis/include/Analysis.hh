@@ -2,6 +2,7 @@
 #define ANALYSIS_HH
 
 #include "../src/TreeModule.cpp"
+#include "TLatex.h"
 #include "TLegend.h"
 #include "TLine.h"
 #include "TreeModule.hh"
