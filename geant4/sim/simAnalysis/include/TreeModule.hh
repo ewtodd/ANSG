@@ -34,8 +34,7 @@ public:
   TBranch *getBranchEnergyHPGe() const { return branchEnergyDepHPGe; };
   TBranch *getBranchEvents() const { return branchEvents; };
   const char *getFilename() { return aFilename; };
-  TString getFormattedFilename(std::string filePrefix,
-                               const char *fileExtension);
+  TString getFormattedFilename();
   TH1D *energySpectrumHist(const TString detectorName,
                            const char *fileExtension, bool isBroadened);
   TH1D *partialEnergySpectrumHist(const TString detectorName, double lowerBound,

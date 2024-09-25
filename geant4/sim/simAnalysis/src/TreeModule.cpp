@@ -34,6 +34,31 @@ TreeModule::~TreeModule() {
   std::cout << "Done." << std::endl;
 }
 
+TString TreeModule::getFormattedFilename() {
+  std::string filename = this->getFilename();
+  // Remove .root file extension
+  std::size_t pos = filename.find(".root");
+  if (pos != std::string::npos) {
+    filename.erase(pos, 5); // 5 is the length of ".root"
+  }
+
+  // Get the part after the last '/'
+  pos = filename.find_last_of('/');
+  std::string output;
+  if (pos != std::string::npos) {
+    output = filename.substr(pos + 1);
+  } else {
+    output = filename;
+  } // Concatenating strings
+  std::string fileoutput = output;
+
+  // this works because TString is not a char* so when fileoutput is
+  // dereferenced after the function ends, it doesn't matter
+  TString rootStr = TString(fileoutput.c_str());
+
+  return rootStr;
+}
+
 TH1D *TreeModule::energySpectrumHist(const TString detectorName,
                                      const char *fileExtension = ".png",
                                      bool isBroadened = false) {
@@ -45,7 +70,8 @@ TH1D *TreeModule::energySpectrumHist(const TString detectorName,
 
   if (detectorName == "CZT") {
     int entries = branchEnergyDepCZT->GetEntries();
-    hist = new TH1D("hist", "; Energy (keV);Entries", 256, -100, 6e3);
+    hist = new TH1D(this->getFormattedFilename(), "; Energy (keV);Entries", 256,
+                    -100, 6e3);
     branchEnergyDepCZT->SetAddress(&eDep);
 
     for (int i = 0; i < entries; i++) {
@@ -57,7 +83,8 @@ TH1D *TreeModule::energySpectrumHist(const TString detectorName,
   } else if (detectorName == "HPGe") {
 
     int entries = branchEnergyDepHPGe->GetEntries();
-    hist = new TH1D("hist", "; Energy (keV);Entries", 256, -100, 6e3);
+    hist = new TH1D(this->getFormattedFilename(), "; Energy (keV);Entries", 256,
+                    -100, 6e3);
     branchEnergyDepHPGe->SetAddress(&eDep);
 
     for (int i = 0; i < entries; i++) {
@@ -86,11 +113,11 @@ TH1D *TreeModule::partialEnergySpectrumHist(const TString detectorName,
     int entries = branchEnergyDepCZT->GetEntries();
 
     if (diff >= 500) {
-      hist = new TH1D("hist", "; Energy (keV);Entries", 256, lowerBound,
-                      upperBound);
+      hist = new TH1D(this->getFormattedFilename(), "; Energy (keV);Entries",
+                      256, lowerBound, upperBound);
     } else {
-      hist = new TH1D("hist", "; Energy (keV);Entries", 128, lowerBound,
-                      upperBound);
+      hist = new TH1D(this->getFormattedFilename(), "; Energy (keV);Entries",
+                      128, lowerBound, upperBound);
     }
 
     branchEnergyDepCZT->SetAddress(&eDep);
@@ -108,11 +135,11 @@ TH1D *TreeModule::partialEnergySpectrumHist(const TString detectorName,
     int entries = branchEnergyDepHPGe->GetEntries();
 
     if (diff >= 500) {
-      hist = new TH1D("hist", "; Energy (keV);Entries", 256, lowerBound,
-                      upperBound);
+      hist = new TH1D(this->getFormattedFilename(), "; Energy (keV);Entries",
+                      256, lowerBound, upperBound);
     } else {
-      hist = new TH1D("hist", "; Energy (keV);Entries", 128, lowerBound,
-                      upperBound);
+      hist = new TH1D(this->getFormattedFilename(), "; Energy (keV);Entries",
+                      128, lowerBound, upperBound);
     }
 
     branchEnergyDepHPGe->SetAddress(&eDep);

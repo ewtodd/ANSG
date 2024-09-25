@@ -30,15 +30,15 @@ G4VPhysicalVolume *DetectorConstruction::Construct() {
   G4double halfHeight = 5 * mm;
   // G4double radius0 = 8 * mm;
   // G4double halfHeight0 = 5 * mm;
-  G4double radius1 = 4 * mm;
-  G4double halfHeight1 = 2.5 * mm;
+  // G4double radius1 = 4 * mm;
+  // G4double halfHeight1 = 2.5 * mm;
   // G4double radius2 = 3 * mm;
   // G4double halfHeight2 = 2 * mm;
-  // G4double radius3 = 2 * mm;
-  // G4double halfHeight3 = 1.5 * mm;
+  G4double radius3 = 2 * mm;
+  G4double halfHeight3 = 1.5 * mm;
 
   G4Tubs *solidGe =
-      new G4Tubs("solidGe", 0., radius1, halfHeight1, 0 * deg, 360 * deg);
+      new G4Tubs("solidGe", 0., radius3, halfHeight3, 0 * deg, 360 * deg);
   G4Tubs *solidGeDet =
       new G4Tubs("solidGeDet", 0., radius, halfHeight, 0 * deg, 360 * deg);
   G4cout << solidGe->GetCubicVolume() / cm3 << G4endl;
@@ -68,8 +68,9 @@ G4VPhysicalVolume *DetectorConstruction::Construct() {
   fScoringVolumeCZT = logicDetectorCZT;
   fScoringVolumeHPGe = logicDetectorHPGe;
 
-  G4double offsetCZT = 1.25 * cm;
-  G4double posCZT = radius1 + offsetCZT;
+  G4double offsetCZT =
+      1.25 * cm; // offset is 0.25 cm + 1 cm for half side length
+  G4double posCZT = radius3 + offsetCZT;
   G4VPhysicalVolume *physCZT =
       new G4PVPlacement(0, G4ThreeVector(posCZT, 0., 10 * cm), logicDetectorCZT,
                         "physCZT", logicWorld, false, 0, true);
@@ -78,10 +79,10 @@ G4VPhysicalVolume *DetectorConstruction::Construct() {
   rotationMatrix->rotateX(90. * deg);
 
   G4VPhysicalVolume *physGe =
-      new G4PVPlacement(rotationMatrix, G4ThreeVector(0., 0., 10 * cm), logicGe,
-                        "physGe", logicWorld, false, 0, true);
+      new G4PVPlacement(0, G4ThreeVector(0., 0., 10 * cm), logicGe, "physGe",
+                        logicWorld, false, 0, true);
 
-  G4double offsetHPGe = radius1 + CdRadius + 2.5;
+  G4double offsetHPGe = radius3 + CdRadius + 2.5; // in mm
   G4VPhysicalVolume *physCd = new G4PVPlacement(
       rotationMatrix, G4ThreeVector(-offsetHPGe * mm, 0., 10 * cm), logicCd,
       "physGe", logicWorld, false, 0, true);
