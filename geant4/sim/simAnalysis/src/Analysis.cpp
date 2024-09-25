@@ -87,7 +87,7 @@ void Analysis::drawFullHists(const TString detectorName,
   // histGeo6->Draw("SAME");
 
   // Create and draw vertical lines at specified values
-  std::vector<double> lineValues = {5850.97, 5867.12, 68.752};
+  std::vector<double> lineValues = {68.752};
   for (double value : lineValues) {
     TLine *line = new TLine(value, 0, value, yAxisMax);
     line->SetLineColor(kBlack);
@@ -98,9 +98,9 @@ void Analysis::drawFullHists(const TString detectorName,
   TLegend *legend =
       new TLegend(0.65, 0.65, 0.9, 0.9); // Adjust the position as needed
   legend->AddEntry(histGeo0, "2 cm^{3}", "l");
-  legend->AddEntry(histGeo1, "0.5 cm^{3}", "l");
-  legend->AddEntry(histGeo2, "0.125 cm^{3}", "l");
-  legend->AddEntry(histGeo3, "0.03125 cm^{3}", "l");
+  legend->AddEntry(histGeo1, "0.25 cm^{3}", "l");
+  legend->AddEntry(histGeo2, "0.11 cm^{3}", "l");
+  legend->AddEntry(histGeo3, "0.038 cm^{3}", "l");
   // legend->AddEntry(histGeo4, "Geometry 4", "l");
   // legend->AddEntry(histGeo5, "Geometry 5", "l");
   // legend->AddEntry(histGeo6, "Geometry 6", "l");
@@ -183,7 +183,7 @@ void Analysis::drawPartialHists(const TString detectorName, double lowerBound,
   // Create and draw vertical
   // lines at specified
   // values
-  std::vector<double> lineValues = {5850.97, 5867.12, 68.752};
+  std::vector<double> lineValues = {68.752};
   for (double value : lineValues) {
     if (lowerBound <= value && value <= upperBound) {
       TLine *line = new TLine(value, 0, value, yAxisMax);
@@ -198,9 +198,9 @@ void Analysis::drawPartialHists(const TString detectorName, double lowerBound,
                                       // position
                                       // as needed
   legend->AddEntry(histGeo0, "2 cm^{3}", "l");
-  legend->AddEntry(histGeo1, "0.5 cm^{3}", "l");
-  legend->AddEntry(histGeo2, "0.125 cm^{3}", "l");
-  legend->AddEntry(histGeo3, "0.03125 cm^{3}", "l");
+  legend->AddEntry(histGeo1, "0.25 cm^{3}", "l");
+  legend->AddEntry(histGeo2, "0.11 cm^{3}", "l");
+  legend->AddEntry(histGeo3, "0.038 cm^{3}", "l");
   // legend->AddEntry(histGeo4,
   // "Geometry 4", "l");
   // legend->AddEntry(histGeo5,

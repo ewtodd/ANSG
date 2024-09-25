@@ -7,5 +7,7 @@ void macro() {
   analysis->loadFiles();
   analysis->drawFullHists("CZT");
   analysis->drawPartialHists("CZT", 68.7, 68.8);
+  analysis->drawFullHists("HPGe");
+  analysis->drawPartialHists("HPGe", 68.7, 68.8);
   delete analysis;
 }
