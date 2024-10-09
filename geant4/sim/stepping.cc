@@ -20,8 +20,11 @@ void SteppingAction::UserSteppingAction(const G4Step *step) {
       detectorConstruction->GetScoringVolumeCZT();
   G4LogicalVolume *fScoringVolumeHPGe =
       detectorConstruction->GetScoringVolumeHPGe();
+  G4LogicalVolume *fScoringVolumeSiLi =
+      detectorConstruction->GetScoringVolumeSiLi();
 
-  if (volume != fScoringVolumeCZT && volume != fScoringVolumeHPGe) {
+  if (volume != fScoringVolumeCZT && volume != fScoringVolumeHPGe &&
+      volume != fScoringVolumeSiLi) {
     return;
   }
 
@@ -32,5 +35,9 @@ void SteppingAction::UserSteppingAction(const G4Step *step) {
   if (volume == fScoringVolumeHPGe) {
     G4double edepHPGe = step->GetTotalEnergyDeposit();
     fEventAction->AddEdepHPGe(edepHPGe);
+  }
+  if (volume == fScoringVolumeSiLi) {
+    G4double edepSiLi = step->GetTotalEnergyDeposit();
+    fEventAction->AddEdepSiLi(edepSiLi);
   }
 }
