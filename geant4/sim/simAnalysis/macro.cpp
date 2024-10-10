@@ -7,7 +7,6 @@ void macro() {
   broadAnalysis->loadFiles();
   broadAnalysis->drawFullHists("CZT");
   broadAnalysis->drawPartialHists("CZT", 55, 80);
-  broadAnalysis->drawPartialHists("CZT", 0, 80);
   broadAnalysis->drawFullHists("HPGe");
   broadAnalysis->drawPartialHists("HPGe", 55, 80);
   broadAnalysis->drawFullHists("SiLi");

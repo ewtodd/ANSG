@@ -53,25 +53,17 @@ TString TreeModule::getFormattedFilename() {
 
 TH1D *TreeModule::broadenedHist(TH1D *hist, const TString detectorName) {
   double res = 0.;
-  TBranch *branchEnergyDep = nullptr;
 
   if (detectorName == "CZT") {
-    branchEnergyDep = branchEnergyDepCZT;
     res = 1.8 / 59.5;
   } else if (detectorName == "HPGe") {
-    branchEnergyDep = branchEnergyDepHPGe;
     res = 0.430 / 68.75;
   } else if (detectorName == "SiLi") {
-    branchEnergyDep = branchEnergyDepSiLi;
     res = 0.165 / 5.9;
   }
 
-  double eDep;
-  branchEnergyDep->SetAddress(&eDep);
-
-  TH1D *broadSpectrum = new TH1D(
-      this->getFormattedFilename(), ";Energy (keV);Entries", hist->GetNbinsX(),
-      hist->GetXaxis()->GetXmin(), hist->GetXaxis()->GetXmax());
+  TH1D *broadSpectrum = (TH1D *)hist->Clone();
+  broadSpectrum->Reset("ICES");
 
   for (int i = 1; i <= hist->GetNbinsX(); ++i) {
     double eCenter = hist->GetBinCenter(i);
@@ -84,10 +76,10 @@ TH1D *TreeModule::broadenedHist(TH1D *hist, const TString detectorName) {
 
       double contribution =
           binContent *
-          (TMath::Erf((eHigh - eCenter) / (TMath::Sqrt(2.0) * simBinSigma)) -
-           TMath::Erf((eLow - eCenter) / (TMath::Sqrt(2.0) * simBinSigma))) /
+          (TMath::Erf((eHigh - eCenter) / ((TMath::Sqrt(2.0) * simBinSigma))) -
+           TMath::Erf((eLow - eCenter) / ((TMath::Sqrt(2.0) * simBinSigma)))) /
           2.0;
-      broadSpectrum->AddBinContent(i, contribution);
+      broadSpectrum->AddBinContent(j, contribution);
     }
   }
 
@@ -113,8 +105,9 @@ TString TreeModule::generateRandomString() {
 }
 
 TH1D *TreeModule::energySpectrumHist(const TString detectorName,
-                                     const char *fileExtension,
-                                     bool isBroadened) {
+                                     double lowerBound = 0,
+                                     double upperBound = 1500,
+                                     bool isBroadened = false) {
   double eDep;
   double etemp;
   int entries = 0;
@@ -133,142 +126,55 @@ TH1D *TreeModule::energySpectrumHist(const TString detectorName,
   }
 
   branchEnergyDep->SetAddress(&eDep);
-
-  hist =
-      new TH1D(generateRandomString(), ";Energy (keV);Entries", 256, -100, 6e3);
-  for (int i = 0; i < entries; i++) {
-    branchEnergyDep->GetEntry(i);
-    etemp = eDep * 1000;
-    hist->Fill(etemp);
-  }
-  hist->SetStats(0);
-
-  if (isBroadened) {
-    TH1D *broadHist = broadenedHist(hist, detectorName);
-    delete hist; // Free the original histogram
-    return broadHist;
-  }
-  return hist;
-}
-void TreeModule::partialEnergySpectrumHist(const TString detectorName,
-                                           double lowerBound, double upperBound,
-                                           const char *fileExtension,
-                                           bool isBroadened) {
-  double eDep;
-  double etemp;
-  TH1D *hist = nullptr;
-  int entries = 0;
-
-  TBranch *branchEnergyDep = nullptr;
-
-  if (detectorName == "CZT") {
-    entries = branchEnergyDepCZT->GetEntries();
-    branchEnergyDep = branchEnergyDepCZT;
-  } else if (detectorName == "HPGe") {
-    entries = branchEnergyDepHPGe->GetEntries();
-    branchEnergyDep = branchEnergyDepHPGe;
-  } else if (detectorName == "SiLi") {
-    entries = branchEnergyDepSiLi->GetEntries();
-    branchEnergyDep = branchEnergyDepSiLi;
-  }
-  branchEnergyDep->SetAddress(&eDep);
-
-  double diff = upperBound - lowerBound;
-  hist = new TH1D(generateRandomString(), ";Energy (keV);Entries",
-                  diff >= 500 ? 256 : 128, lowerBound, upperBound);
-
-  for (int i = 0; i < entries; i++) {
-    branchEnergyDep->GetEntry(i);
-    etemp = eDep * 1000;
-    if (lowerBound <= etemp && etemp <= upperBound) {
+  if (lowerBound == 0 && upperBound == 1500) {
+    hist = new TH1D(generateRandomString(), ";Energy (keV);Entries", 10000,
+                    lowerBound, upperBound);
+    for (int i = 0; i < entries; i++) {
+      branchEnergyDep->GetEntry(i);
+      etemp = eDep * 1000;
       hist->Fill(etemp);
     }
+    hist->SetStats(0);
+
+    if (isBroadened) {
+      hist = broadenedHist(hist, detectorName);
+    }
+  } else if (lowerBound != 0 || upperBound != 1500) {
+    int nbins = 10000;
+
+    hist = new TH1D(generateRandomString(), ";Energy (keV);Entries", nbins, 0,
+                    1500);
+    for (int i = 0; i < entries; i++) {
+      branchEnergyDep->GetEntry(i);
+      etemp = eDep * 1000;
+      hist->Fill(etemp);
+    }
+
+    if (isBroadened) {
+      hist = broadenedHist(hist, detectorName);
+    }
+
+    int bin_min = hist->GetXaxis()->FindBin(lowerBound);
+    int bin_max = hist->GetXaxis()->FindBin(upperBound);
+
+    // Find the maximum bin content in the specified x range
+    double max_content = 0;
+    for (int bin = bin_min; bin <= bin_max; ++bin) {
+      double content = hist->GetBinContent(bin);
+      if (content > max_content) {
+        max_content = content;
+      }
+    }
+
+    // Set reasonable minimum and maximum values for the y-axis
+    double y_min = 0; // Assuming a baseline at 0
+    double y_max =
+        max_content * 1.1; // Add a 10% margin for better visual distinction
+
+    hist->GetXaxis()->SetRangeUser(lowerBound, upperBound); // Set x-axis range
+    hist->GetYaxis()->SetRangeUser(y_min, y_max);           // Set y-axis range
+    hist->SetStats(0);
   }
 
-  hist->SetStats(0);
-  TCanvas *c1 = new TCanvas("c1", "c1", 2000, 1500);
-  // Set the margins
-  c1->SetLeftMargin(0.15);  // Set the left margin to 15% of the canvas width
-  c1->SetRightMargin(0.05); // Set the right margin to 5% of the canvas width
-  c1->SetTopMargin(0.1);    // Set the top margin to 10% of the canvas height
-  c1->SetBottomMargin(
-      0.15); // Set the bottom margin to 15% of the canvas height
-  // Set fill colors and
-  // styles
-  Short_t lineWidth = 2;
-  hist->SetLineColor(kRed);
-  hist->SetLineWidth(lineWidth);
-
-  if (isBroadened) {
-    TH1D *broadHist = broadenedHist(hist, detectorName);
-    delete hist; // Free the original histogram
-
-    // Draw the broadened histogram
-    broadHist->SetLineWidth(lineWidth);
-    broadHist->Draw();
-
-    // Perform Gaussian fit and legend creation
-    TLegend *legend = fitGaussianToPeak(broadHist);
-    legend->Draw(); // Draw the legend after the histogram
-
-    // Add the title using TLatex
-    TLatex *latex = new TLatex();
-    latex->SetNDC();
-    latex->SetTextSize(0.04);
-    latex->DrawLatex(0.5, 0.95, detectorName);
-    c1->Update();
-
-    TString fileName = Form("partialHist_%.2f_%.2f", lowerBound, upperBound);
-    c1->Print(fileName + detectorName + "_broad.png");
-
-    delete c1;
-    delete broadHist;
-    delete legend;
-  } else {
-    hist->Draw();
-
-    // Add the title using TLatex
-    TLatex *latex = new TLatex();
-    latex->SetNDC();
-    latex->SetTextSize(0.04);
-    latex->DrawLatex(0.5, 0.95, detectorName);
-    c1->Update();
-
-    TString fileName = Form("partialHist_%.2f_%.2f", lowerBound, upperBound);
-    c1->Print(fileName + detectorName + "_.png");
-
-    delete c1;
-    delete hist;
-  }
-}
-
-TLegend *TreeModule::fitGaussianToPeak(TH1D *hist) {
-  // Define the fit range around the peak position
-  double fitRangeMin = 68.75 - 5;
-  double fitRangeMax = 68.75 + 5;
-  // Define the Gaussian function
-  TF1 *gaussFit = new TF1("gaussFit", "gaus + [3]", fitRangeMin, fitRangeMax);
-
-  // Initial parameters: [0] = height, [1] = mean, [2] = sigma
-  gaussFit->SetParameters(hist->GetMaximum(), 68.75, 1.0);
-
-  // Perform the fit
-  hist->Fit(gaussFit, "RQ");
-
-  // Retrieve fit parameters and their uncertainties
-  double peakMean = gaussFit->GetParameter(1);
-  double peakMeanError = gaussFit->GetParError(1);
-  // Create the legend
-  TLegend *legend = new TLegend(0.65, 0.75, 0.95, 0.9);
-  legend->SetTextSize(0.025);
-  legend->SetFillColor(0);
-  legend->AddEntry(
-      gaussFit,
-      TString::Format("Mean: %.3f #pm %.3f keV", peakMean, peakMeanError), "l");
-
-  // Output fit results to console
-  std::cout << "Peak position (mean): " << peakMean << " ± " << peakMeanError 
-            << " keV" << std::endl;
-
-  return legend;
+  return hist;
 }

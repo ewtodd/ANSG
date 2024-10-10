@@ -1,14 +1,9 @@
 #ifndef TREE_MODULE_H_INCLUDED
 #define TREE_MODULE_H_INCLUDED
 #include <TBranch.h>
-#include <TCanvas.h>
 #include <TDirectory.h>
-#include <TF1.h>
 #include <TFile.h>
 #include <TH1.h>
-#include <TH2.h>
-#include <TLatex.h>
-#include <TLegend.h>
 #include <TLine.h>
 #include <TMath.h>
 #include <TString.h>
@@ -46,13 +41,9 @@ public:
   const char *getFilename() { return aFilename; };
   TString getFormattedFilename();
   TH1D *broadenedHist(TH1D *hist, const TString detectorName);
-  TH1D *energySpectrumHist(const TString detectorName,
-                           const char *fileExtension, bool isBroadened);
-  void partialEnergySpectrumHist(const TString detectorName, double lowerBound,
-                                 double upperBound, const char *fileExtension,
-                                 bool isBroadened);
+  TH1D *energySpectrumHist(const TString detectorName, double lowerBound,
+                           double upperBound, bool isBroadened);
   TString generateRandomString();
-  TLegend *fitGaussianToPeak(TH1D *hist);
 };
 
 #endif

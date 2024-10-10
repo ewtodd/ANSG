@@ -2,10 +2,13 @@
 #define BROADANALYSIS_HH
 
 #include "../src/TreeModule.cpp"
-#include "TLatex.h"
-#include "TLegend.h"
-#include "TLine.h"
 #include "TreeModule.hh"
+#include <TCanvas.h>
+#include <TF1.h>
+#include <TLatex.h>
+#include <TLegend.h>
+#include <TLine.h>
+#include <TString.h>
 
 class BroadAnalysis {
 public:
@@ -16,10 +19,10 @@ public:
   void drawPartialHists(const TString detectorName, double lowerBound,
                         double upperBound);
   void analysis();
+  TLegend *fitGaussianToPeak(TH1D *hist, double peak, double range);
 
 private:
   TreeModule *tmSim;
-  TreeModule *tmBroad;
 };
 
 #endif
