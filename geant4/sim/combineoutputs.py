@@ -7,12 +7,14 @@ def combine_root_files(output_file, input_files):
     hits_chain = ROOT.TChain("Hits")
     energyCZT_chain = ROOT.TChain("EnergyCZT")
     energyHPGe_chain = ROOT.TChain("EnergyHPGe")
+    energySiLi_chain = ROOT.TChain("EnergySiLi")
     
     # Add files to the chains
     for file_name in input_files:
         hits_chain.Add(file_name)
         energyCZT_chain.Add(file_name)
         energyHPGe_chain.Add(file_name)
+        energySiLi_chain.Add(file_name)
     
         
     # Create the output file
@@ -23,12 +25,14 @@ def combine_root_files(output_file, input_files):
     hits_tree = hits_chain.CloneTree(-1, "fast")
     energyCZT_tree = energyCZT_chain.CloneTree(-1, "fast")
     energyHPGe_tree = energyHPGe_chain.CloneTree(-1, "fast")
+    energySiLi_tree = energySiLi_chain.CloneTree(-1, "fast")
 
     
     # Write the trees to the output file
     hits_tree.Write()
     energyCZT_tree.Write()
     energyHPGe_tree.Write()
+    energySiLi_tree.Write()
 
     # Close the output file
     output.Close()

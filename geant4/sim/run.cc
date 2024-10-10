@@ -11,17 +11,14 @@ RunAction::RunAction() {
 
   man->CreateNtuple("EnergyCZT", "EnergyCZT");
   man->CreateNtupleDColumn("fEdepCZT");
-  man->CreateNtupleDColumn("fEdepCZTBroad");
   man->FinishNtuple(1);
 
   man->CreateNtuple("EnergyHPGe", "EnergyHPGe");
   man->CreateNtupleDColumn("fEdepHPGe");
-  man->CreateNtupleDColumn("fEdepHPGeBroad");
   man->FinishNtuple(2);
 
   man->CreateNtuple("EnergySiLi", "EnergySiLi");
   man->CreateNtupleDColumn("fEdepSiLi");
-  man->CreateNtupleDColumn("fEdepSiLiBroad");
   man->FinishNtuple(3);
 }
 RunAction::~RunAction() {}
