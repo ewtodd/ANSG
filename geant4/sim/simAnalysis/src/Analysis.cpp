@@ -1,239 +1,284 @@
 #include "../include/Analysis.hh"
 
 Analysis::Analysis() {
-  tmGeo0 = nullptr;
-  tmGeo1 = nullptr;
-  tmGeo2 = nullptr;
-  tmGeo3 = nullptr;
-  // tmGeo4 = nullptr;
-  // tmGeo5 = nullptr;
-  // tmGeo6 = nullptr;
+  tmSim0 = nullptr;
+  tmSim1 = nullptr;
+  tmSim2 = nullptr;
+  tmSim3 = nullptr;
+  tmSim4 = nullptr;
+  tmSim5 = nullptr;
+  tmBroad0 = nullptr;
+  tmBroad1 = nullptr;
+  tmBroad2 = nullptr;
+  tmBroad3 = nullptr;
+  tmBroad4 = nullptr;
+  tmBroad5 = nullptr;
+  CZTStack = new THStack();
+  HPGeStack = new THStack();
+  SiLiStack = new THStack();
+  CZTStackPartial = new THStack();
+  HPGeStackPartial = new THStack();
+  SiLiStackPartial = new THStack();
 }
 
 Analysis::~Analysis() {
-  delete tmGeo0;
-  delete tmGeo1;
-  delete tmGeo2;
-  delete tmGeo3;
-  // delete tmGeo4;
-  // delete tmGeo5;
-  // delete tmGeo6;
+  delete tmSim0;
+  delete tmSim1;
+  delete tmSim2;
+  delete tmSim3;
+  delete tmSim4;
+  delete tmSim5;
+  delete tmBroad0;
+  delete tmBroad1;
+  delete tmBroad2;
+  delete tmBroad3;
+  delete tmBroad4;
+  delete tmBroad5;
+  delete CZTStack;
+  delete CZTStackPartial;
+  delete HPGeStack;
+  delete HPGeStackPartial;
+  delete SiLiStack;
+  delete SiLiStackPartial;
 }
 
-void Analysis::loadFiles() {
-  tmGeo0 = new TreeModule("../Thin0.root");
-  tmGeo1 = new TreeModule("../Thin1.root");
-  tmGeo2 = new TreeModule("../Thin2.root");
-  tmGeo3 = new TreeModule("../Thin3.root");
-  // tmGeo4 = new TreeModule("../geoCyl3Vert.root");
-  //  tmGeo5 = new TreeModule("../geoCyl5.root");
-  //  tmGeo6 = new TreeModule("../geoCyl6.root");
+void Analysis::loadFiles(bool firstTime = false) {
+  if (firstTime) {
+    tmSim0 = new TreeModule("../1E6.root");
+    tmSim1 = new TreeModule("../5E6.root");
+    tmSim2 = new TreeModule("../1E7.root");
+    tmSim3 = new TreeModule("../5E7.root");
+    tmSim4 = new TreeModule("../1E8.root");
+    tmSim5 = new TreeModule("../1E9.root");
+
+    tmSim0->broadenAndStoreEnergy();
+    tmSim1->broadenAndStoreEnergy();
+    tmSim2->broadenAndStoreEnergy();
+    tmSim3->broadenAndStoreEnergy();
+    tmSim4->broadenAndStoreEnergy();
+    tmSim5->broadenAndStoreEnergy();
+  } else {
+    tmBroad0 = new BroadTree("../1E6_broadened.root");
+    tmBroad1 = new BroadTree("../5E6_broadened.root");
+    tmBroad2 = new BroadTree("../1E7_broadened.root");
+    tmBroad3 = new BroadTree("../5E7_broadened.root");
+    tmBroad4 = new BroadTree("../1E8_broadened.root");
+    tmBroad5 = new BroadTree("../1E9_broadened.root");
+  }
 }
 
-void Analysis::drawFullHists(const TString detectorName,
-                             bool isBroadened = false) {
-  TH1D *histGeo0 = tmGeo0->energySpectrumHist(
-      detectorName, tmGeo0->getFilename(), isBroadened);
-  TH1D *histGeo1 = tmGeo1->energySpectrumHist(
-      detectorName, tmGeo1->getFilename(), isBroadened);
-  TH1D *histGeo2 = tmGeo2->energySpectrumHist(
-      detectorName, tmGeo2->getFilename(), isBroadened);
-  TH1D *histGeo3 = tmGeo3->energySpectrumHist(
-      detectorName, tmGeo3->getFilename(), isBroadened);
-  // TH1D *histGeo4 = tmGeo4->energySpectrumHist(
-  //  detectorName, tmGeo4->getFilename(), isBroadened);
-  // TH1D *histGeo5 = tmGeo5->energySpectrumHist(tmGeo5->getFilename());
-  // TH1D *histGeo6 = tmGeo5->energySpectrumHist(tmGeo6->getFilename());
+void Analysis::drawHists(const TString detectorName, bool isNormed) {
+  THStack *stack = nullptr;
+  TString filename = detectorName;
 
-  // Find the histogram with the largest maximum bin content
-  double maxBinContent =
-      std::max({histGeo0->GetMaximum(), histGeo1->GetMaximum(),
-                histGeo2->GetMaximum(), histGeo3->GetMaximum()});
-  //, histGeo4->GetMaximum(), histGeo5->GetMaximum(), histGeo6->GetMaximum()});
+  if (detectorName == "CZT") {
+    stack = CZTStack;
+  } else if (detectorName == "HPGe") {
+    stack = HPGeStack;
+  } else if (detectorName == "SiLi") {
+    stack = SiLiStack;
+  }
+  stack->Clear();
+  TH1D *histBroad0 = tmBroad0->energySpectrumHist(detectorName);
+  TH1D *histBroad1 = tmBroad1->energySpectrumHist(detectorName);
+  TH1D *histBroad2 = tmBroad2->energySpectrumHist(detectorName);
+  TH1D *histBroad3 = tmBroad3->energySpectrumHist(detectorName);
+  TH1D *histBroad4 = tmBroad4->energySpectrumHist(detectorName);
+  TH1D *histBroad5 = tmBroad5->energySpectrumHist(detectorName);
 
-  double yAxisMax = maxBinContent * 1.1;
   // Set axis properties for thicker lines and tick marks
   gStyle->SetLineWidth(2);
   gStyle->SetHistLineWidth(2);
   gStyle->SetFrameLineWidth(2);
-  TCanvas *c1 = new TCanvas("c1", "c1", 2000, 1500);
-  // Set the margins
+  // Set fill colors and styles
+  Short_t lineWidth = 2;
+  histBroad0->SetLineWidth(lineWidth);
+  histBroad1->SetLineWidth(lineWidth);
+  histBroad2->SetLineWidth(lineWidth);
+  histBroad3->SetLineWidth(lineWidth);
+  histBroad4->SetLineWidth(lineWidth);
+  histBroad5->SetLineWidth(lineWidth);
+  histBroad0->SetLineColor(kRed);
+  histBroad1->SetLineColor(kBlue);
+  histBroad2->SetLineColor(kGreen);
+  histBroad3->SetLineColor(kPink);
+  histBroad4->SetLineColor(kYellow);
+  histBroad5->SetLineColor(kMagenta);
+
+  if (isNormed) {
+    histBroad0->Scale(1.0 / histBroad0->Integral());
+    histBroad1->Scale(1.0 / histBroad1->Integral());
+    histBroad2->Scale(1.0 / histBroad2->Integral());
+    histBroad3->Scale(1.0 / histBroad3->Integral());
+    histBroad4->Scale(1.0 / histBroad4->Integral());
+    histBroad5->Scale(1.0 / histBroad5->Integral());
+    filename += "Normed";
+  }
+  TCanvas *c1 = new TCanvas(detectorName, "c1", 2000, 1500);
   c1->SetLeftMargin(0.15);  // Set the left margin to 15% of the canvas width
   c1->SetRightMargin(0.05); // Set the right margin to 5% of the canvas width
   c1->SetTopMargin(0.1);    // Set the top margin to 10% of the canvas height
   c1->SetBottomMargin(
       0.15); // Set the bottom margin to 15% of the canvas height
-  // Set fill colors and styles
-  Short_t lineWidth = 2;
-  histGeo0->SetLineColor(kRed);
-  histGeo0->SetLineWidth(lineWidth);
-  histGeo1->SetLineColor(kBlue);
-  histGeo1->SetLineWidth(lineWidth);
-  histGeo2->SetLineColor(kGreen);
-  histGeo2->SetLineWidth(lineWidth);
-  histGeo3->SetLineColor(kMagenta);
-  histGeo3->SetLineWidth(lineWidth);
-  // histGeo4->SetLineColor(kOrange);
-  // histGeo5->SetLineColor(kViolet);
-  // histGeo6->SetLineColor(kCyan);
-
-  histGeo0->GetYaxis()->SetRangeUser(0, yAxisMax);
-  // Draw histograms with fill styles
-  histGeo0->Draw();
-  histGeo1->Draw("SAME");
-  histGeo2->Draw("SAME");
-  histGeo3->Draw("SAME");
-  // histGeo4->Draw("SAME");
-  // histGeo5->Draw("SAME");
-  // histGeo6->Draw("SAME");
 
   // Create and draw vertical lines at specified values
   std::vector<double> lineValues = {68.752};
+  // Add the title using TLatex
+  TLatex *latex = new TLatex();
+  latex->SetNDC();
+  latex->SetTextSize(0.04);
+  latex->DrawLatex(0.5, 0.95, detectorName);
+
+  stack->Add(histBroad0);
+  stack->Add(histBroad1);
+  stack->Add(histBroad2);
+  stack->Add(histBroad3);
+  stack->Add(histBroad4);
+  stack->Add(histBroad5);
+  stack->Draw("nostack");
+
   for (double value : lineValues) {
-    TLine *line = new TLine(value, 0, value, yAxisMax);
+    TLine *line = new TLine(value, 0, value, histBroad5->GetMaximum());
     line->SetLineColor(kBlack);
     line->SetLineStyle(2); // Dashed line
     line->Draw();
   }
-
-  TLegend *legend =
-      new TLegend(0.65, 0.65, 0.9, 0.9); // Adjust the position as needed
-  legend->AddEntry(histGeo0, "2 cm^{3}", "l");
-  legend->AddEntry(histGeo1, "0.25 cm^{3}", "l");
-  legend->AddEntry(histGeo2, "0.11 cm^{3}", "l");
-  legend->AddEntry(histGeo3, "0.038 cm^{3}", "l");
-  // legend->AddEntry(histGeo4, "Geometry 4", "l");
-  // legend->AddEntry(histGeo5, "Geometry 5", "l");
-  // legend->AddEntry(histGeo6, "Geometry 6", "l");
-  legend->Draw();
-
   // Add the title using TLatex
-  TLatex *latex = new TLatex();
   latex->SetNDC();
   latex->SetTextSize(0.04);
   latex->DrawLatex(0.5, 0.95, detectorName);
   // Update the canvas to show the drawings
   c1->Update();
-  c1->Print("fullrange" + detectorName + "_Thin.png");
-
+  c1->Print(filename + ".png");
   delete c1;
-  delete histGeo0;
-  delete histGeo1;
-  delete histGeo2;
-  delete histGeo3;
-  // delete histGeo4;
-  // delete histGeo5;
-  // delete histGeo6;
 }
 
 void Analysis::drawPartialHists(const TString detectorName, double lowerBound,
-                                double upperBound, bool isBroadened = false) {
-  TH1D *histGeo0 = tmGeo0->partialEnergySpectrumHist(
-      detectorName, lowerBound, upperBound, tmGeo0->getFilename(), isBroadened);
-  TH1D *histGeo1 = tmGeo1->partialEnergySpectrumHist(
-      detectorName, lowerBound, upperBound, tmGeo1->getFilename(), isBroadened);
-  TH1D *histGeo2 = tmGeo2->partialEnergySpectrumHist(
-      detectorName, lowerBound, upperBound, tmGeo2->getFilename(), isBroadened);
-  TH1D *histGeo3 = tmGeo3->partialEnergySpectrumHist(
-      detectorName, lowerBound, upperBound, tmGeo3->getFilename(), isBroadened);
-  // TH1D *histGeo4 = tmGeo4->partialEnergySpectrumHist(
-  // detectorName, lowerBound, upperBound, tmGeo4->getFilename());
-  // TH1D *histGeo5 = tmGeo5->partialEnergySpectrumHist(lowerBound, upperBound,
-  // tmGeo5->getFilename());
-  //  TH1D *histGeo6 =  tmGeo6->partialEnergySpectrumHist(lowerBound,
-  //  upperBound, tmGeo6->getFilename());
+                                double upperBound, bool isNormed) {
 
-  TCanvas *c1 = new TCanvas("c1", "c1", 2000, 1500);
-  // Set the margins
+  THStack *stackPartial = nullptr;
+
+  if (detectorName == "CZT") {
+    stackPartial = CZTStackPartial;
+  } else if (detectorName == "HPGe") {
+    stackPartial = HPGeStackPartial;
+  } else if (detectorName == "SiLi") {
+    stackPartial = SiLiStackPartial;
+  }
+  stackPartial->Clear();
+  TH1D *histBroad0 =
+      tmBroad0->energySpectrumHist(detectorName, lowerBound, upperBound);
+  TH1D *histBroad1 =
+      tmBroad1->energySpectrumHist(detectorName, lowerBound, upperBound);
+  TH1D *histBroad2 =
+      tmBroad2->energySpectrumHist(detectorName, lowerBound, upperBound);
+  TH1D *histBroad3 =
+      tmBroad3->energySpectrumHist(detectorName, lowerBound, upperBound);
+  TH1D *histBroad4 =
+      tmBroad4->energySpectrumHist(detectorName, lowerBound, upperBound);
+  TH1D *histBroad5 =
+      tmBroad5->energySpectrumHist(detectorName, lowerBound, upperBound);
+
+  // Set axis properties for thicker lines and tick marks
+  gStyle->SetLineWidth(2);
+  gStyle->SetHistLineWidth(2);
+  gStyle->SetFrameLineWidth(2);
+  // Set fill colors and styles
+  Short_t lineWidth = 2;
+  histBroad0->SetLineWidth(lineWidth);
+  histBroad1->SetLineWidth(lineWidth);
+  histBroad2->SetLineWidth(lineWidth);
+  histBroad3->SetLineWidth(lineWidth);
+  histBroad4->SetLineWidth(lineWidth);
+  histBroad5->SetLineWidth(lineWidth);
+  histBroad0->SetLineColor(kRed);
+  histBroad1->SetLineColor(kBlue);
+  histBroad2->SetLineColor(kGreen);
+  histBroad3->SetLineColor(kPink);
+  histBroad4->SetLineColor(kYellow);
+  histBroad5->SetLineColor(kMagenta);
+
+  if (isNormed) {
+    histBroad0->Scale(1.0 / histBroad0->Integral());
+    histBroad1->Scale(1.0 / histBroad1->Integral());
+    histBroad2->Scale(1.0 / histBroad2->Integral());
+    histBroad3->Scale(1.0 / histBroad3->Integral());
+    histBroad4->Scale(1.0 / histBroad4->Integral());
+    histBroad5->Scale(1.0 / histBroad5->Integral());
+  }
+
+  TCanvas *c1 = new TCanvas(detectorName, "c1", 2000, 1500);
   c1->SetLeftMargin(0.15);  // Set the left margin to 15% of the canvas width
   c1->SetRightMargin(0.05); // Set the right margin to 5% of the canvas width
   c1->SetTopMargin(0.1);    // Set the top margin to 10% of the canvas height
   c1->SetBottomMargin(
       0.15); // Set the bottom margin to 15% of the canvas height
-  // Set fill colors and
-  // styles
-  Short_t lineWidth = 2;
-  histGeo0->SetLineColor(kRed);
-  histGeo0->SetLineWidth(lineWidth);
-  histGeo1->SetLineColor(kBlue);
-  histGeo1->SetLineWidth(lineWidth);
-  histGeo2->SetLineColor(kGreen);
-  histGeo2->SetLineWidth(lineWidth);
-  histGeo3->SetLineColor(kMagenta);
-  histGeo3->SetLineWidth(lineWidth);
-  // histGeo4->SetLineColor(kOrange);
-  // histGeo5->SetLineColor(kViolet);
-  //  histGeo6->SetLineColor(kCyan);
 
-  double maxBinContent =
-      std::max({histGeo0->GetMaximum(), histGeo1->GetMaximum(),
-                histGeo2->GetMaximum(), histGeo3->GetMaximum()});
-  // ,
-  // histGeo4->GetMaximum(),
-  // histGeo5->GetMaximum(),
-  // histGeo6->GetMaximum()});
+  stackPartial->Add(histBroad0);
+  stackPartial->Add(histBroad1);
+  stackPartial->Add(histBroad2);
+  stackPartial->Add(histBroad3);
+  stackPartial->Add(histBroad4);
+  stackPartial->Add(histBroad5);
+  stackPartial->Draw("nostack");
 
-  double yAxisMax = maxBinContent * 1.1;
-  histGeo0->GetYaxis()->SetRangeUser(0, yAxisMax);
-
-  // Draw histograms with
-  // fill styles
-  histGeo0->Draw();
-  histGeo1->Draw("SAME");
-  histGeo2->Draw("SAME");
-  histGeo3->Draw("SAME");
-  // histGeo4->Draw("SAME");
-  // histGeo5->Draw("SAME");
-  // histGeo6->Draw("SAME");
-
-  // Create and draw vertical
-  // lines at specified
-  // values
+  // Create and draw vertical lines at specified values
   std::vector<double> lineValues = {68.752};
-  for (double value : lineValues) {
-    if (lowerBound <= value && value <= upperBound) {
-      TLine *line = new TLine(value, 0, value, yAxisMax);
-      line->SetLineColor(kBlack);
-      line->SetLineStyle(2); // Dashed line
-      line->Draw();
-    }
-  }
-
-  TLegend *legend = new TLegend(0.65, 0.65, 0.9,
-                                0.9); // Adjust the
-                                      // position
-                                      // as needed
-  legend->AddEntry(histGeo0, "2 cm^{3}", "l");
-  legend->AddEntry(histGeo1, "0.25 cm^{3}", "l");
-  legend->AddEntry(histGeo2, "0.11 cm^{3}", "l");
-  legend->AddEntry(histGeo3, "0.038 cm^{3}", "l");
-  // legend->AddEntry(histGeo4, "Geometry 4", "l");
-  // legend->AddEntry(histGeo5,
-  // "Geometry 5", "l");
-  // legend->AddEntry(histGeo6,
-  // "Geometry 6", "l");
-  legend->Draw();
-
   // Add the title using TLatex
   TLatex *latex = new TLatex();
   latex->SetNDC();
   latex->SetTextSize(0.04);
   latex->DrawLatex(0.5, 0.95, detectorName);
+  stackPartial->Draw("nostack");
 
-  // Update the canvas to
-  // show the drawings
-  c1->Update();
+  for (double value : lineValues) {
+    TLine *line = new TLine(value, 0, value, stackPartial->GetMaximum());
+    line->SetLineColor(kBlack);
+    line->SetLineStyle(2); // Dashed line
+    line->Draw();
+  }
+  // Add the title using TLatex
+  latex->SetNDC();
+  latex->SetTextSize(0.04);
+  latex->DrawLatex(0.5, 0.95, detectorName);
   TString fileName = Form("partialHist_%."
                           "2f_%.2f",
                           lowerBound, upperBound);
-  c1->Print(fileName + detectorName + "_Thin.png");
-
+  // Update the canvas to show the drawings
+  c1->Update();
+  c1->Print(fileName + detectorName + ".png");
   delete c1;
-  delete histGeo0;
-  delete histGeo1;
-  delete histGeo2;
-  delete histGeo3;
-  // delete histGeo4;
-  // delete histGeo5;
-  // delete histGeo6;
+}
+
+TLegend *Analysis::fitGaussianToPeak(TH1D *hist, double peak = 68.75,
+                                     double range = 5) {
+  // Define the fit range around the peak position
+  double fitRangeMin = peak - range;
+  double fitRangeMax = peak + range;
+  // Define the Gaussian function
+  TF1 *gaussFit = new TF1("gaussFit", "gaus + [3]*x*x + [4]*x + [5]",
+                          fitRangeMin, fitRangeMax);
+
+  // Initial parameters: [0] = height, [1] = mean, [2] = sigma
+  gaussFit->SetParameters(hist->GetMaximum(), peak, 1.0);
+
+  // Perform the fit
+  hist->Fit(gaussFit, "RQ");
+
+  // Retrieve fit parameters and their uncertainties
+  double peakMean = gaussFit->GetParameter(1);
+  double peakMeanError = gaussFit->GetParError(1);
+  // Create the legend
+  TLegend *legend = new TLegend(0.65, 0.75, 0.95, 0.9);
+  legend->SetTextSize(0.025);
+  legend->SetFillColor(0);
+  legend->AddEntry(
+      gaussFit,
+      TString::Format("Mean: %.3f #pm %.3f keV", peakMean, peakMeanError), "l");
+
+  // Output fit results to console
+  std::cout << "Peak position (mean): " << peakMean << " ± " << peakMeanError 
+            << " keV" << std::endl;
+
+  return legend;
 }

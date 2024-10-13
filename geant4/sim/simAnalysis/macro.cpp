@@ -1,15 +1,18 @@
-#include "include/BroadAnalysis.hh"
-#include "src/BroadAnalysis.cpp"
+#include "include/Analysis.hh"
+#include "src/Analysis.cpp"
 
 void macro() {
   gROOT->SetBatch(kTRUE);
-  BroadAnalysis *broadAnalysis = new BroadAnalysis();
-  broadAnalysis->loadFiles();
-  broadAnalysis->drawFullHists("CZT");
-  broadAnalysis->drawPartialHists("CZT", 55, 80);
-  broadAnalysis->drawFullHists("HPGe");
-  broadAnalysis->drawPartialHists("HPGe", 55, 80);
-  broadAnalysis->drawFullHists("SiLi");
-  broadAnalysis->drawPartialHists("SiLi", 55, 80);
-  delete broadAnalysis;
+  Analysis *analysis = new Analysis();
+  analysis->loadFiles(true);
+
+  // analysis->drawHists("CZT", false);
+  // analysis->drawHists("CZT", true);
+  // analysis->drawPartialHists("CZT", 64.75, 72.75, false);
+  // analysis->drawPartialHists("CZT", 64.75, 72.75, true);
+  //  analysis->drawHists("HPGe");
+  //  analysis->drawPartialHists("HPGe", 68, 69.5);
+  //  analysis->drawHists("SiLi");
+  //  analysis->drawPartialHists("SiLi", 64.75, 72.75);
+  delete analysis;
 }

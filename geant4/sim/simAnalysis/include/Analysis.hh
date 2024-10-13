@@ -1,30 +1,52 @@
 #ifndef ANALYSIS_HH
 #define ANALYSIS_HH
 
+#include "../src/BroadTree.cpp"
 #include "../src/TreeModule.cpp"
-#include "TLatex.h"
-#include "TLegend.h"
-#include "TLine.h"
+#include "BroadTree.hh"
 #include "TreeModule.hh"
+#include <TCanvas.h>
+#include <TF1.h>
+#include <THStack.h>
+#include <TLatex.h>
+#include <TLegend.h>
+#include <TLine.h>
+#include <TString.h>
 
 class Analysis {
 public:
   Analysis();
   ~Analysis();
-  void loadFiles();
-  void drawFullHists(const TString detectorName, bool isBroadened);
+  void loadFiles(bool firstTime);
+  void testHists(const TString detectorName);
+  void drawHists(const TString detectorName, bool isNormed);
   void drawPartialHists(const TString detectorName, double lowerBound,
-                        double upperBound, bool isBroadened);
-  void analysis();
+                        double upperBound, bool isNormed);
+
+  TLegend *fitGaussianToPeak(TH1D *hist, double peak, double range);
 
 private:
-  TreeModule *tmGeo0;
-  TreeModule *tmGeo1;
-  TreeModule *tmGeo2;
-  TreeModule *tmGeo3;
-  TreeModule *tmGeo4;
-  // TreeModule *tmGeo5;
-  // TreeModule *tmGeo6;
+  TreeModule *tmSim0;
+  TreeModule *tmSim1;
+  TreeModule *tmSim2;
+  TreeModule *tmSim3;
+  TreeModule *tmSim4;
+  TreeModule *tmSim5;
+
+  BroadTree *tmBroad0;
+  BroadTree *tmBroad1;
+  BroadTree *tmBroad2;
+  BroadTree *tmBroad3;
+  BroadTree *tmBroad4;
+  BroadTree *tmBroad5;
+
+  THStack *CZTStack;
+  THStack *HPGeStack;
+  THStack *SiLiStack;
+
+  THStack *CZTStackPartial;
+  THStack *HPGeStackPartial;
+  THStack *SiLiStackPartial;
 };
 
 #endif

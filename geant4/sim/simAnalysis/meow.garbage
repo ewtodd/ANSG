@@ -1,0 +1,155 @@
+
+void Analysis::drawPartialHists(const TString detectorName, double lowerBound,
+                                double upperBound) {
+  TH1D *histSim =
+      tmSim->energySpectrumHist(detectorName, lowerBound, upperBound, false);
+  TH1D *histBroad =
+      tmSim->energySpectrumHist(detectorName, lowerBound, upperBound, true);
+
+  // Set axis properties for thicker lines and tick marks
+  gStyle->SetLineWidth(2);
+  gStyle->SetHistLineWidth(2);
+  gStyle->SetFrameLineWidth(2);
+  TCanvas *c1 = new TCanvas("c1", "c1", 2000, 1500);
+  // Set the margins
+  c1->SetLeftMargin(0.15);  // Set the left margin to 15% of the canvas width
+  c1->SetRightMargin(0.05); // Set the right margin to 5% of the canvas width
+  c1->SetTopMargin(0.1);    // Set the top margin to 10% of the canvas height
+  c1->SetBottomMargin(
+      0.15); // Set the bottom margin to 15% of the canvas height
+  // Set fill colors and styles
+  Short_t lineWidth = 2;
+  histSim->SetLineColor(kRed);
+  histSim->SetLineWidth(lineWidth);
+  histBroad->SetLineWidth(lineWidth);
+
+  // Draw histograms with fill styles
+  histSim->Draw();
+
+  // Create and draw vertical lines at specified values
+  std::vector<double> lineValues = {68.752};
+  for (double value : lineValues) {
+    TLine *line = new TLine(value, 0, value, histSim->GetMaximum());
+    line->SetLineColor(kBlack);
+    line->SetLineStyle(2); // Dashed line
+    line->Draw();
+  }
+  // Add the title using TLatex
+  TLatex *latex = new TLatex();
+  latex->SetNDC();
+  latex->SetTextSize(0.04);
+  latex->DrawLatex(0.5, 0.95, detectorName);
+  TString fileName = Form("partialHist_%."
+                          "2f_%.2f",
+                          lowerBound, upperBound);
+  // Update the canvas to show the drawings
+  c1->Update();
+  c1->Print(fileName + detectorName + ".png");
+
+  delete c1;
+  delete histSim;
+
+  TCanvas *c2 = new TCanvas("c2", "c2", 2000, 1500);
+  c2->SetLeftMargin(0.15);  // Set the left margin to 15% of the canvas width
+  c2->SetRightMargin(0.05); // Set the right margin to 5% of the canvas width
+  c2->SetTopMargin(0.1);    // Set the top margin to 10% of the canvas height
+  c2->SetBottomMargin(
+      0.15); // Set the bottom margin to 15% of the canvas height
+  TLegend *legend = fitGaussianToPeak(histBroad, 68.75, 5);
+  histBroad->Draw();
+  legend->Draw();
+
+  for (double value : lineValues) {
+    TLine *line = new TLine(value, 0, value, histBroad->GetMaximum());
+    line->SetLineColor(kBlack);
+    line->SetLineStyle(2); // Dashed line
+    line->Draw();
+  }
+  // Add the title using TLatex
+  latex->SetNDC();
+  latex->SetTextSize(0.04);
+  latex->DrawLatex(0.5, 0.95, detectorName);
+  // Update the canvas to show the drawings
+  c2->Update();
+  c2->Print(fileName + detectorName + "_broad.png");
+
+  delete histBroad;
+  delete c2;
+}
+int bin_min = hist->GetXaxis()->FindBin(lowerBound);
+int bin_max = hist->GetXaxis()->FindBin(upperBound);
+
+// Find the maximum bin content in the specified x range
+double max_content = 0;
+for (int bin = bin_min; bin <= bin_max; ++bin) {
+  double content = hist->GetBinContent(bin);
+  if (content > max_content) {
+    max_content = content;
+  }
+}
+
+// Set reasonable minimum and maximum values for the y-axis
+double y_min = 0; // Assuming a baseline at 0
+double y_max =
+    max_content * 1.1; // Add a 10% margin for better visual distinction
+
+hist->GetXaxis()->SetRangeUser(lowerBound, upperBound); // Set x-axis range
+hist->GetYaxis()->SetRangeUser(y_min, y_max);           // Set y-axis range
+hist->SetStats(0);
+
+
+// avoid histogram naming related memory leaks
+TString TreeModule::generateRandomString() {
+  const int length = 3; // Length of the random string
+  const char charset[] = "abcdefghijklmnopqrstuvwxyz"; // Possible characters
+  const size_t max_index = sizeof(charset) - 1;
+  std::default_random_engine generator(
+      std::random_device{}()); // Seed with random device
+  std::uniform_int_distribution<int> distribution(0, max_index - 1);
+
+  TString randomString;
+  for (int i = 0; i < length; ++i) {
+    randomString += charset[distribution(generator)];
+  }
+
+  return randomString;
+}
+
+TH1D *TreeModule::energySpectrumHist(const TString detectorName) {
+  double eDep;
+  double etemp;
+  int entries = 0;
+  TH1D *hist = nullptr;
+  TBranch *branchEnergyDep = nullptr;
+  double FWHM = 0.;
+  double res = 0.;
+
+  if (detectorName == "CZT") {
+    entries = branchEnergyDepCZT->GetEntries();
+    branchEnergyDep = branchEnergyDepCZT;
+    res = 1.8 / 59.5;
+  } else if (detectorName == "HPGe") {
+    entries = branchEnergyDepHPGe->GetEntries();
+    branchEnergyDep = branchEnergyDepHPGe;
+    res = 0.430 / 68.75;
+  } else if (detectorName == "SiLi") {
+    entries = branchEnergyDepSiLi->GetEntries();
+    branchEnergyDep = branchEnergyDepSiLi;
+    res = 0.165 / 5.9;
+  }
+
+  FWHM = res * 68.75;
+  int nbins = (10400) / (FWHM / 15);
+  branchEnergyDep->SetAddress(&eDep);
+  TString histName = generateRandomString();
+  hist = new TH1D(histName, ";Energy (keV);Entries", nbins, 0, 10400);
+  for (int i = 0; i < entries; i++) {
+    branchEnergyDep->GetEntry(i);
+    etemp = eDep * 1000;
+    hist->Fill(etemp);
+  }
+  hist->SetStats(0);
+  hist = broadenedHist(hist, detectorName);
+
+  return hist;
+}

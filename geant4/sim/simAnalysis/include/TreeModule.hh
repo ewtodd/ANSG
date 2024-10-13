@@ -1,21 +1,20 @@
 #ifndef TREE_MODULE_H_INCLUDED
 #define TREE_MODULE_H_INCLUDED
+
 #include <TBranch.h>
 #include <TDirectory.h>
 #include <TFile.h>
 #include <TH1.h>
-#include <TLine.h>
 #include <TMath.h>
 #include <TString.h>
 #include <TTree.h>
-#include <cstring>
 #include <iostream>
 #include <random>
 
 class TreeModule {
-
 private:
   TFile *aFile;
+  TFile *broadenedFile;
   TTree *hitsTree;
   TTree *energyTreeCZT;
   TTree *energyTreeHPGe;
@@ -23,27 +22,17 @@ private:
   TBranch *branchEnergyDepCZT;
   TBranch *branchEnergyDepHPGe;
   TBranch *branchEnergyDepSiLi;
-  TBranch *branchEvents;
   const char *aFilename;
 
-public:
-  TreeModule(const char *filename);
-  ~TreeModule();
-  TFile *getAFile() const { return aFile; };
-  TTree *getHitsTree() const { return hitsTree; };
-  TTree *getEnergyTreeCZT() const { return energyTreeCZT; };
-  TTree *getEnergyTreeHPGe() const { return energyTreeHPGe; };
-  TTree *getEnergyTreeSiLi() const { return energyTreeSiLi; };
-  TBranch *getBranchEnergyCZT() const { return branchEnergyDepCZT; };
-  TBranch *getBranchEnergyHPGe() const { return branchEnergyDepHPGe; };
-  TBranch *getBranchEnergySiLi() const { return branchEnergyDepSiLi; };
-  TBranch *getBranchEvents() const { return branchEvents; };
-  const char *getFilename() { return aFilename; };
-  TString getFormattedFilename();
+  TH1D *createHistogram(TBranch *branch, const char *histName);
   TH1D *broadenedHist(TH1D *hist, const TString detectorName);
-  TH1D *energySpectrumHist(const TString detectorName, double lowerBound,
-                           double upperBound, bool isBroadened);
-  TString generateRandomString();
+  void writeHistogramToTree(TTree *tree, TH1D *hist, const char *branchName);
+
+public:
+  TreeModule(const char *filename, const char *broadenedFilename = nullptr);
+  ~TreeModule();
+  void broadenAndStoreEnergy();
+  const char *getFilename() { return aFilename; };
 };
 
-#endif
+#endif // TREE_MODULE_H_INCLUDED

@@ -1,17 +1,16 @@
 #include "../include/TreeModule.hh"
 
-TreeModule::TreeModule(const char *filename) {
+TreeModule::TreeModule(const char *filename, const char *broadenedFilename) {
   aFilename = filename;
   aFile = new TFile(filename, "READ");
   if (aFile->IsOpen()) {
-    hitsTree = static_cast<TTree *>(aFile->Get("Hits;"));
-    energyTreeCZT = static_cast<TTree *>(aFile->Get("EnergyCZT;"));
-    energyTreeHPGe = static_cast<TTree *>(aFile->Get("EnergyHPGe;"));
+    hitsTree = static_cast<TTree *>(aFile->Get("Hits"));
+    energyTreeCZT = static_cast<TTree *>(aFile->Get("EnergyCZT"));
+    energyTreeHPGe = static_cast<TTree *>(aFile->Get("EnergyHPGe"));
     energyTreeSiLi = static_cast<TTree *>(aFile->Get("EnergySiLi"));
     branchEnergyDepCZT = energyTreeCZT->GetBranch("fEdepCZT");
     branchEnergyDepHPGe = energyTreeHPGe->GetBranch("fEdepHPGe");
     branchEnergyDepSiLi = energyTreeSiLi->GetBranch("fEdepSiLi");
-    branchEvents = hitsTree->GetBranch("fEvents");
   } else {
     std::cerr << "Failed to open the file: " << filename << std::endl;
     aFile = nullptr;
@@ -22,33 +21,81 @@ TreeModule::TreeModule(const char *filename) {
     branchEnergyDepCZT = nullptr;
     branchEnergyDepHPGe = nullptr;
     branchEnergyDepSiLi = nullptr;
-    branchEvents = nullptr;
+  }
+
+  TString broadenedFileName;
+  if (broadenedFilename) {
+    broadenedFileName = broadenedFilename;
+  } else {
+    broadenedFileName = TString::Format(
+        "%s_broadened.root", TString(filename).ReplaceAll(".root", "").Data());
+  }
+
+  broadenedFile = new TFile(broadenedFileName, "RECREATE");
+  if (!broadenedFile->IsOpen()) {
+    std::cerr << "Failed to open the broadened file: " << broadenedFileName
+              << std::endl;
+    broadenedFile = nullptr;
   }
 }
 
 TreeModule::~TreeModule() {
-  std::cout << "Deleting TreeModule..." << std::endl;
   if (aFile) {
     aFile->Close();
     delete aFile;
   }
+  if (broadenedFile) {
+    broadenedFile->Close();
+    delete broadenedFile;
+  }
   std::cout << "Done." << std::endl;
 }
 
-TString TreeModule::getFormattedFilename() {
-  std::string filename = this->getFilename();
-  std::size_t pos = filename.find(".root");
-  if (pos != std::string::npos) {
-    filename.erase(pos, 5);
+TH1D *TreeModule::createHistogram(TBranch *branch, const char *histName) {
+  double eDep;
+  branch->SetAddress(&eDep);
+
+  double FWHM = 0.;
+  double res = 0.;
+
+  if (std::strcmp(histName, "CZT") == 0) {
+    res = 1.8 / 59.5;
+    std::cout << "Creating CZT histogram..." << std::endl;
+
+  } else if (std::strcmp(histName, "HPGe") == 0) {
+    res = 0.430 / 68.75;
+    std::cout << "NOT Creating HPGe histogram..." << std::endl;
+    TString histTitle =
+        TString::Format("%s Spectrum;Energy (keV);Entries", histName);
+    TH1D *hist = new TH1D(histName, histTitle, 10, 0, 10400);
+    return hist;
+
+  } else if (std::strcmp(histName, "SiLi") == 0) {
+    res = 0.165 / 5.9;
+    std::cout << "NOT Creating SiLi histogram..." << std::endl;
+    TString histTitle =
+        TString::Format("%s Spectrum;Energy (keV);Entries", histName);
+    TH1D *hist = new TH1D(histName, histTitle, 10, 0, 10400);
+    return hist;
   }
-  pos = filename.find_last_of('/');
-  std::string output;
-  if (pos != std::string::npos) {
-    output = filename.substr(pos + 1);
-  } else {
-    output = filename;
+
+  FWHM = res * 68.75;
+  int nbins = 2 * (10400) / (FWHM / 15);
+
+  TString histTitle =
+      TString::Format("%s Spectrum;Energy (keV);Entries", histName);
+  TH1D *hist = new TH1D(histName, histTitle, nbins, 0, 10400);
+  int entries = branch->GetEntries();
+  std::cout << "Creating histogram " << histName << " with " << entries
+            << " entries." << std::endl;
+
+  for (int i = 0; i < entries; ++i) {
+    branch->GetEntry(i);
+    hist->Fill(eDep * 1000);
   }
-  return TString(output.c_str());
+  std::cout << "Filled histogram " << histName << " with " << hist->GetEntries()
+            << " entries." << std::endl;
+  return hist;
 }
 
 TH1D *TreeModule::broadenedHist(TH1D *hist, const TString detectorName) {
@@ -87,94 +134,63 @@ TH1D *TreeModule::broadenedHist(TH1D *hist, const TString detectorName) {
   return broadSpectrum;
 }
 
-// avoid histogram naming related memory leaks
-TString TreeModule::generateRandomString() {
-  const int length = 3; // Length of the random string
-  const char charset[] = "abcdefghijklmnopqrstuvwxyz"; // Possible characters
-  const size_t max_index = sizeof(charset) - 1;
-  std::default_random_engine generator(
-      std::random_device{}()); // Seed with random device
-  std::uniform_int_distribution<int> distribution(0, max_index - 1);
+void TreeModule::writeHistogramToTree(TTree *tree, TH1D *hist,
+                                      const char *branchName) {
+  double energy;
+  TBranch *branch = tree->Branch(branchName, &energy, "energy/D");
+  std::cout << "Writing broadened histogram to tree with branch " << branchName
+            << std::endl;
 
-  TString randomString;
-  for (int i = 0; i < length; ++i) {
-    randomString += charset[distribution(generator)];
+  for (int i = 1; i <= hist->GetNbinsX(); ++i) {
+    energy = hist->GetBinCenter(i);
+    int entries = hist->GetBinContent(i);
+    for (int j = 0; j < entries; ++j) {
+      tree->Fill();
+    }
   }
-
-  return randomString;
+  std::cout << "Wrote " << branch->GetEntries() << " entries to branch "
+            << branchName << std::endl;
 }
 
-TH1D *TreeModule::energySpectrumHist(const TString detectorName,
-                                     double lowerBound = 0,
-                                     double upperBound = 1500,
-                                     bool isBroadened = false) {
-  double eDep;
-  double etemp;
-  int entries = 0;
-  TH1D *hist = nullptr;
-  TBranch *branchEnergyDep = nullptr;
+void TreeModule::broadenAndStoreEnergy() {
+  if (!broadenedFile || !broadenedFile->IsOpen()) {
+    std::cerr << "Broadened file is not open or valid." << std::endl;
+    return;
+  }
+  broadenedFile
+      ->cd(); // Ensure that we are working in the broadened file context
 
-  if (detectorName == "CZT") {
-    entries = branchEnergyDepCZT->GetEntries();
-    branchEnergyDep = branchEnergyDepCZT;
-  } else if (detectorName == "HPGe") {
-    entries = branchEnergyDepHPGe->GetEntries();
-    branchEnergyDep = branchEnergyDepHPGe;
-  } else if (detectorName == "SiLi") {
-    entries = branchEnergyDepSiLi->GetEntries();
-    branchEnergyDep = branchEnergyDepSiLi;
+  if (branchEnergyDepCZT) {
+    TTree *broadenedTreeCZT =
+        new TTree("BroadenedEnergyCZT", "Broadened Energy Spectrum for CZT");
+    TH1D *histCZT = createHistogram(branchEnergyDepCZT, "CZT");
+    TH1D *broadHistCZT = broadenedHist(histCZT, "CZT");
+    writeHistogramToTree(broadenedTreeCZT, broadHistCZT, "fEdepCZT");
+    broadenedTreeCZT->Write(); // Write the tree to the file
+    broadenedTreeCZT->Print();
+    delete histCZT;
+    delete broadHistCZT;
   }
 
-  branchEnergyDep->SetAddress(&eDep);
-  if (lowerBound == 0 && upperBound == 1500) {
-    hist = new TH1D(generateRandomString(), ";Energy (keV);Entries", 10000,
-                    lowerBound, upperBound);
-    for (int i = 0; i < entries; i++) {
-      branchEnergyDep->GetEntry(i);
-      etemp = eDep * 1000;
-      hist->Fill(etemp);
-    }
-    hist->SetStats(0);
-
-    if (isBroadened) {
-      hist = broadenedHist(hist, detectorName);
-    }
-  } else if (lowerBound != 0 || upperBound != 1500) {
-    int nbins = 10000;
-
-    hist = new TH1D(generateRandomString(), ";Energy (keV);Entries", nbins, 0,
-                    1500);
-    for (int i = 0; i < entries; i++) {
-      branchEnergyDep->GetEntry(i);
-      etemp = eDep * 1000;
-      hist->Fill(etemp);
-    }
-
-    if (isBroadened) {
-      hist = broadenedHist(hist, detectorName);
-    }
-
-    int bin_min = hist->GetXaxis()->FindBin(lowerBound);
-    int bin_max = hist->GetXaxis()->FindBin(upperBound);
-
-    // Find the maximum bin content in the specified x range
-    double max_content = 0;
-    for (int bin = bin_min; bin <= bin_max; ++bin) {
-      double content = hist->GetBinContent(bin);
-      if (content > max_content) {
-        max_content = content;
-      }
-    }
-
-    // Set reasonable minimum and maximum values for the y-axis
-    double y_min = 0; // Assuming a baseline at 0
-    double y_max =
-        max_content * 1.1; // Add a 10% margin for better visual distinction
-
-    hist->GetXaxis()->SetRangeUser(lowerBound, upperBound); // Set x-axis range
-    hist->GetYaxis()->SetRangeUser(y_min, y_max);           // Set y-axis range
-    hist->SetStats(0);
+  if (branchEnergyDepHPGe) {
+    TTree *broadenedTreeHPGe =
+        new TTree("BroadenedEnergyHPGe", "Broadened Energy Spectrum for HPGe");
+    TH1D *histHPGe = createHistogram(branchEnergyDepHPGe, "HPGe");
+    TH1D *broadHistHPGe = broadenedHist(histHPGe, "HPGe");
+    writeHistogramToTree(broadenedTreeHPGe, broadHistHPGe, "fEdepHPGe");
+    broadenedTreeHPGe->Write(); // Write the tree to the file
+    delete histHPGe;
+    delete broadHistHPGe;
   }
 
-  return hist;
+  if (branchEnergyDepSiLi) {
+    TTree *broadenedTreeSiLi =
+        new TTree("BroadenedEnergySiLi", "Broadened Energy Spectrum for SiLi");
+    TH1D *histSiLi = createHistogram(branchEnergyDepSiLi, "SiLi");
+    TH1D *broadHistSiLi = broadenedHist(histSiLi, "SiLi");
+    writeHistogramToTree(broadenedTreeSiLi, broadHistSiLi, "fEdepSiLi");
+    broadenedTreeSiLi->Write(); // Write the tree to the file
+    delete histSiLi;
+    delete broadHistSiLi;
+  }
 }
