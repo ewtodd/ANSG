@@ -69,7 +69,8 @@ void Analysis::loadFiles(bool firstTime = false) {
 
 void Analysis::drawHists(const TString detectorName, bool isNormed) {
   THStack *stack = nullptr;
-  TString filename = detectorName;
+  TString fileName = detectorName;
+  TString yTitle = "Counts";
 
   if (detectorName == "CZT") {
     stack = CZTStack;
@@ -78,7 +79,7 @@ void Analysis::drawHists(const TString detectorName, bool isNormed) {
   } else if (detectorName == "SiLi") {
     stack = SiLiStack;
   }
-  stack->Clear();
+  ClearTHStack(stack);
   TH1D *histBroad0 = tmBroad0->energySpectrumHist(detectorName);
   TH1D *histBroad1 = tmBroad1->energySpectrumHist(detectorName);
   TH1D *histBroad2 = tmBroad2->energySpectrumHist(detectorName);
@@ -101,9 +102,16 @@ void Analysis::drawHists(const TString detectorName, bool isNormed) {
   histBroad0->SetLineColor(kRed);
   histBroad1->SetLineColor(kBlue);
   histBroad2->SetLineColor(kGreen);
-  histBroad3->SetLineColor(kPink);
+  histBroad3->SetLineColor(kCyan);
   histBroad4->SetLineColor(kYellow);
   histBroad5->SetLineColor(kMagenta);
+
+  histBroad0->SetFillColor(TColor::GetColorTransparent(kRed, 0.5));
+  histBroad1->SetFillColor(TColor::GetColorTransparent(kBlue, 0.5));
+  histBroad2->SetFillColor(TColor::GetColorTransparent(kGreen, 0.5));
+  histBroad3->SetFillColor(TColor::GetColorTransparent(kCyan, 0.5));
+  histBroad4->SetFillColor(TColor::GetColorTransparent(kYellow, 0.5));
+  histBroad5->SetFillColor(TColor::GetColorTransparent(kMagenta, 0.5));
 
   if (isNormed) {
     histBroad0->Scale(1.0 / histBroad0->Integral());
@@ -112,7 +120,8 @@ void Analysis::drawHists(const TString detectorName, bool isNormed) {
     histBroad3->Scale(1.0 / histBroad3->Integral());
     histBroad4->Scale(1.0 / histBroad4->Integral());
     histBroad5->Scale(1.0 / histBroad5->Integral());
-    filename += "Normed";
+    fileName += "Normed";
+    yTitle = "Counts / # of Incident Neutrons";
   }
   TCanvas *c1 = new TCanvas(detectorName, "c1", 2000, 1500);
   c1->SetLeftMargin(0.15);  // Set the left margin to 15% of the canvas width
@@ -121,42 +130,31 @@ void Analysis::drawHists(const TString detectorName, bool isNormed) {
   c1->SetBottomMargin(
       0.15); // Set the bottom margin to 15% of the canvas height
 
-  // Create and draw vertical lines at specified values
-  std::vector<double> lineValues = {68.752};
+  stack->Add(histBroad5);
+  stack->Add(histBroad4);
+  stack->Add(histBroad3);
+  stack->Add(histBroad2);
+  stack->Add(histBroad1);
+  stack->Add(histBroad0);
+  stack->Draw("nostack");
+  stack->GetXaxis()->SetTitle("Energy (keV)");
+  stack->GetYaxis()->SetTitle(yTitle);
   // Add the title using TLatex
   TLatex *latex = new TLatex();
   latex->SetNDC();
   latex->SetTextSize(0.04);
-  latex->DrawLatex(0.5, 0.95, detectorName);
-
-  stack->Add(histBroad0);
-  stack->Add(histBroad1);
-  stack->Add(histBroad2);
-  stack->Add(histBroad3);
-  stack->Add(histBroad4);
-  stack->Add(histBroad5);
-  stack->Draw("nostack");
-
-  for (double value : lineValues) {
-    TLine *line = new TLine(value, 0, value, histBroad5->GetMaximum());
-    line->SetLineColor(kBlack);
-    line->SetLineStyle(2); // Dashed line
-    line->Draw();
-  }
-  // Add the title using TLatex
-  latex->SetNDC();
-  latex->SetTextSize(0.04);
-  latex->DrawLatex(0.5, 0.95, detectorName);
+  // latex->DrawLatex(0.53, 0.95, detectorName);
   // Update the canvas to show the drawings
   c1->Update();
-  c1->Print(filename + ".png");
+  c1->Print(fileName + ".png");
   delete c1;
 }
 
 void Analysis::drawPartialHists(const TString detectorName, double lowerBound,
-                                double upperBound, bool isNormed) {
+                                double upperBound, bool isNormed, int nbins) {
 
   THStack *stackPartial = nullptr;
+  TString yTitle = "Log Counts";
 
   if (detectorName == "CZT") {
     stackPartial = CZTStackPartial;
@@ -165,19 +163,19 @@ void Analysis::drawPartialHists(const TString detectorName, double lowerBound,
   } else if (detectorName == "SiLi") {
     stackPartial = SiLiStackPartial;
   }
-  stackPartial->Clear();
+  ClearTHStack(stackPartial);
   TH1D *histBroad0 =
-      tmBroad0->energySpectrumHist(detectorName, lowerBound, upperBound);
+      tmBroad0->energySpectrumHist(detectorName, lowerBound, upperBound, nbins);
   TH1D *histBroad1 =
-      tmBroad1->energySpectrumHist(detectorName, lowerBound, upperBound);
+      tmBroad1->energySpectrumHist(detectorName, lowerBound, upperBound, nbins);
   TH1D *histBroad2 =
-      tmBroad2->energySpectrumHist(detectorName, lowerBound, upperBound);
+      tmBroad2->energySpectrumHist(detectorName, lowerBound, upperBound, nbins);
   TH1D *histBroad3 =
-      tmBroad3->energySpectrumHist(detectorName, lowerBound, upperBound);
+      tmBroad3->energySpectrumHist(detectorName, lowerBound, upperBound, nbins);
   TH1D *histBroad4 =
-      tmBroad4->energySpectrumHist(detectorName, lowerBound, upperBound);
+      tmBroad4->energySpectrumHist(detectorName, lowerBound, upperBound, nbins);
   TH1D *histBroad5 =
-      tmBroad5->energySpectrumHist(detectorName, lowerBound, upperBound);
+      tmBroad5->energySpectrumHist(detectorName, lowerBound, upperBound, nbins);
 
   // Set axis properties for thicker lines and tick marks
   gStyle->SetLineWidth(2);
@@ -194,9 +192,19 @@ void Analysis::drawPartialHists(const TString detectorName, double lowerBound,
   histBroad0->SetLineColor(kRed);
   histBroad1->SetLineColor(kBlue);
   histBroad2->SetLineColor(kGreen);
-  histBroad3->SetLineColor(kPink);
+  histBroad3->SetLineColor(kCyan);
   histBroad4->SetLineColor(kYellow);
   histBroad5->SetLineColor(kMagenta);
+  histBroad0->SetFillColor(TColor::GetColorTransparent(kRed, 0.5));
+  histBroad1->SetFillColor(TColor::GetColorTransparent(kBlue, 0.5));
+  histBroad2->SetFillColor(TColor::GetColorTransparent(kGreen, 0.5));
+  histBroad3->SetFillColor(TColor::GetColorTransparent(kCyan, 0.5));
+  histBroad4->SetFillColor(TColor::GetColorTransparent(kYellow, 0.5));
+  histBroad5->SetFillColor(TColor::GetColorTransparent(kMagenta, 0.5));
+
+  TString fileName = Form("partialHist_%."
+                          "2f_%.2f",
+                          lowerBound, upperBound);
 
   if (isNormed) {
     histBroad0->Scale(1.0 / histBroad0->Integral());
@@ -205,6 +213,8 @@ void Analysis::drawPartialHists(const TString detectorName, double lowerBound,
     histBroad3->Scale(1.0 / histBroad3->Integral());
     histBroad4->Scale(1.0 / histBroad4->Integral());
     histBroad5->Scale(1.0 / histBroad5->Integral());
+    fileName += "Normed";
+    yTitle = "Log Normalized Counts";
   }
 
   TCanvas *c1 = new TCanvas(detectorName, "c1", 2000, 1500);
@@ -214,44 +224,56 @@ void Analysis::drawPartialHists(const TString detectorName, double lowerBound,
   c1->SetBottomMargin(
       0.15); // Set the bottom margin to 15% of the canvas height
 
-  stackPartial->Add(histBroad0);
-  stackPartial->Add(histBroad1);
-  stackPartial->Add(histBroad2);
-  stackPartial->Add(histBroad3);
-  stackPartial->Add(histBroad4);
+  TLegend *legend = new TLegend(0.7, 0.65, 0.95, 0.9);
+  legend->SetTextSize(0.025);
+  legend->SetFillColor(0);
+  legend->SetHeader("68.75 keV Peak Position Errors", "C");
+  fitGaussianToPeak(legend, histBroad0, 68.75, 5, "0.267 min");
+  fitGaussianToPeak(legend, histBroad1, 68.75, 5, "1.3 min");
+  fitGaussianToPeak(legend, histBroad2, 68.75, 5, "2.67 min");
+  fitGaussianToPeak(legend, histBroad3, 68.75, 5, "13.3 min");
+  fitGaussianToPeak(legend, histBroad4, 68.75, 5, "26.7 min");
+  fitGaussianToPeak(legend, histBroad5, 68.75, 5, "267 min");
   stackPartial->Add(histBroad5);
-  stackPartial->Draw("nostack");
+  stackPartial->Add(histBroad4);
+  stackPartial->Add(histBroad3);
+  stackPartial->Add(histBroad2);
+  stackPartial->Add(histBroad1);
+  stackPartial->Add(histBroad0);
+  stackPartial->Draw("nostack, HIST");
+  stackPartial->GetXaxis()->SetTitle("Energy (keV)");
+  stackPartial->GetYaxis()->SetTitle(yTitle);
 
-  // Create and draw vertical lines at specified values
-  std::vector<double> lineValues = {68.752};
   // Add the title using TLatex
   TLatex *latex = new TLatex();
   latex->SetNDC();
   latex->SetTextSize(0.04);
-  latex->DrawLatex(0.5, 0.95, detectorName);
-  stackPartial->Draw("nostack");
+  // latex->DrawLatex(0.53, 0.95, detectorName);
 
-  for (double value : lineValues) {
-    TLine *line = new TLine(value, 0, value, stackPartial->GetMaximum());
-    line->SetLineColor(kBlack);
-    line->SetLineStyle(2); // Dashed line
-    line->Draw();
-  }
-  // Add the title using TLatex
-  latex->SetNDC();
-  latex->SetTextSize(0.04);
-  latex->DrawLatex(0.5, 0.95, detectorName);
-  TString fileName = Form("partialHist_%."
-                          "2f_%.2f",
-                          lowerBound, upperBound);
+  legend->Draw();
+  c1->SetLogy();
   // Update the canvas to show the drawings
   c1->Update();
   c1->Print(fileName + detectorName + ".png");
   delete c1;
 }
 
-TLegend *Analysis::fitGaussianToPeak(TH1D *hist, double peak = 68.75,
-                                     double range = 5) {
+void Analysis::ClearTHStack(THStack *stack) {
+  // Get the list of histograms
+  TList *histList = stack->GetHists();
+
+  // Remove and delete each histogram
+  TIter next(histList);
+  TObject *obj;
+  while ((obj = next())) {
+    histList->Remove(obj);
+    delete obj;
+  }
+}
+
+void Analysis::fitGaussianToPeak(TLegend *legend, TH1D *hist,
+                                 double peak = 68.75, double range = 5,
+                                 TString measurementTime = "") {
   // Define the fit range around the peak position
   double fitRangeMin = peak - range;
   double fitRangeMax = peak + range;
@@ -261,24 +283,21 @@ TLegend *Analysis::fitGaussianToPeak(TH1D *hist, double peak = 68.75,
 
   // Initial parameters: [0] = height, [1] = mean, [2] = sigma
   gaussFit->SetParameters(hist->GetMaximum(), peak, 1.0);
-
+  // Set the color for the fit from the histogram's color
+  gaussFit->SetLineColor(hist->GetLineColor());
+  gaussFit->Draw();
   // Perform the fit
   hist->Fit(gaussFit, "RQ");
-
   // Retrieve fit parameters and their uncertainties
   double peakMean = gaussFit->GetParameter(1);
   double peakMeanError = gaussFit->GetParError(1);
   // Create the legend
-  TLegend *legend = new TLegend(0.65, 0.75, 0.95, 0.9);
-  legend->SetTextSize(0.025);
-  legend->SetFillColor(0);
-  legend->AddEntry(
-      gaussFit,
-      TString::Format("Mean: %.3f #pm %.3f keV", peakMean, peakMeanError), "l");
+  legend->AddEntry(gaussFit,
+                   measurementTime + ": " +
+                       TString::Format("#pm %.3f keV", peakMeanError),
+                   "l");
 
   // Output fit results to console
   std::cout << "Peak position (mean): " << peakMean << " ± " << peakMeanError 
             << " keV" << std::endl;
-
-  return legend;
 }

@@ -66,32 +66,25 @@ TString BroadTree::generateRandomString() {
 
 TH1D *BroadTree::energySpectrumHist(const TString detectorName,
                                     double lowerBound = 0,
-                                    double upperBound = 100) {
+                                    double upperBound = 100, int nbins = 829) {
 
   double eDep;
   double etemp;
   int entries = 0;
   TH1D *hist = nullptr;
   TBranch *branchEnergyDep = nullptr;
-  double FWHM = 0.;
-  double res = 0.;
 
   if (detectorName == "CZT") {
     entries = branchEnergyDepCZT->GetEntries();
     branchEnergyDep = branchEnergyDepCZT;
-    res = 1.8 / 59.5;
   } else if (detectorName == "HPGe") {
     entries = branchEnergyDepHPGe->GetEntries();
     branchEnergyDep = branchEnergyDepHPGe;
-    res = 0.430 / 68.75;
   } else if (detectorName == "SiLi") {
     entries = branchEnergyDepSiLi->GetEntries();
     branchEnergyDep = branchEnergyDepSiLi;
-    res = 0.165 / 5.9;
   }
 
-  FWHM = res * 68.75;
-  int nbins = (upperBound - lowerBound) / (FWHM / 15.45);
   branchEnergyDep->SetAddress(&eDep);
   TString histName = generateRandomString();
   hist = new TH1D(histName, ";Energy (keV);Entries", nbins, lowerBound,

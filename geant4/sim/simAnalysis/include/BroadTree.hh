@@ -37,7 +37,7 @@ public:
   const char *getFilename() { return aFilename; };
   TString getFormattedFilename();
   TH1D *energySpectrumHist(const TString detectorName, double lowerBound,
-                           double upperBound);
+                           double upperBound, int nbins);
   TString generateRandomString();
 };
 

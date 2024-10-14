@@ -79,8 +79,8 @@ TH1D *TreeModule::createHistogram(TBranch *branch, const char *histName) {
     return hist;
   }
 
-  FWHM = res * 68.75;
-  int nbins = 2 * (10400) / (FWHM / 15);
+  FWHM = res * 68.752;
+  int nbins = 1.3 * (10400) / (FWHM / 15);
 
   TString histTitle =
       TString::Format("%s Spectrum;Energy (keV);Entries", histName);

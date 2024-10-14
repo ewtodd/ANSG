@@ -47,6 +47,9 @@ G4VPhysicalVolume *DetectorConstruction::Construct() {
   G4cout << "Thickness of Germanium target: " << thick * 2 / mm << " mm."
          << G4endl;
 
+  G4cout << "Crosssectional area of Germanium target: "
+         << len_wid * thick * 4 / cm2 << "cm2." << G4endl;
+
   // Make the Germanium target:
   G4Box *solidGe = new G4Box("solidGe", thick, len_wid, len_wid);
   G4cout << "Volume of Germanium target: " << solidGe->GetCubicVolume() / cm3

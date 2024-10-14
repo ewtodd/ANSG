@@ -6,6 +6,7 @@
 #include "BroadTree.hh"
 #include "TreeModule.hh"
 #include <TCanvas.h>
+#include <TColor.h>
 #include <TF1.h>
 #include <THStack.h>
 #include <TLatex.h>
@@ -21,9 +22,11 @@ public:
   void testHists(const TString detectorName);
   void drawHists(const TString detectorName, bool isNormed);
   void drawPartialHists(const TString detectorName, double lowerBound,
-                        double upperBound, bool isNormed);
+                        double upperBound, bool isNormed, int nbins);
 
-  TLegend *fitGaussianToPeak(TH1D *hist, double peak, double range);
+  void fitGaussianToPeak(TLegend *legend, TH1D *hist, double peak, double range,
+                         TString measurementTime);
+  void ClearTHStack(THStack *stack);
 
 private:
   TreeModule *tmSim0;
