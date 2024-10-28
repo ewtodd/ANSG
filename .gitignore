@@ -1,2 +1,4 @@
 # ignore other people code
 external/
+# ignore unimportant stuff
+rootpractice/
