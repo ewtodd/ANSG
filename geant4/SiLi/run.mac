@@ -1,0 +1,12 @@
+/run/numberOfThreads 16
+/run/initialize
+/process/had/rdm/thresholdForVeryLongDecayTime 1.0e+60 year
+/gps/pos/shape Circle
+/gps/pos/centre 0. 0. 0. cm 
+/gps/pos/radius 1.25 cm 
+/gps/ang/type beam2d
+/gps/ene/type Gauss
+/gps/ene/mono 0.025 eV 
+/gps/ene/sigma 0.005 eV
+/gps/direction 0 0 1
+/run/beamOn 500000

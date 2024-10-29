@@ -21,18 +21,12 @@ public:
   DetectorConstruction();
   ~DetectorConstruction();
 
-  G4LogicalVolume *GetScoringVolumeCZT() const { return fScoringVolumeCZT; }
-  G4LogicalVolume *GetScoringVolumeHPGe() const { return fScoringVolumeHPGe; }
   G4LogicalVolume *GetScoringVolumeSiLi() const { return fScoringVolumeSiLi; }
 
   virtual G4VPhysicalVolume *Construct();
 
 private:
-  G4LogicalVolume *logicDetectorHPGe;
-  G4LogicalVolume *logicDetectorCZT;
   G4LogicalVolume *logicDetectorSiLi;
-  G4LogicalVolume *fScoringVolumeCZT;
-  G4LogicalVolume *fScoringVolumeHPGe;
   G4LogicalVolume *fScoringVolumeSiLi;
   virtual void ConstructSDandField();
 };

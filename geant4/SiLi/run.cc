@@ -4,22 +4,11 @@ RunAction::RunAction() {
   G4AnalysisManager *man = G4AnalysisManager::Instance();
   man->CreateNtuple("Hits", "Hits");
   man->CreateNtupleIColumn("fEvent");
-  // man->CreateNtupleDColumn("fX");
-  // man->CreateNtupleDColumn("fY");
-  // man->CreateNtupleDColumn("fZ");
   man->FinishNtuple(0);
-
-  man->CreateNtuple("EnergyCZT", "EnergyCZT");
-  man->CreateNtupleDColumn("fEdepCZT");
-  man->FinishNtuple(1);
-
-  man->CreateNtuple("EnergyHPGe", "EnergyHPGe");
-  man->CreateNtupleDColumn("fEdepHPGe");
-  man->FinishNtuple(2);
 
   man->CreateNtuple("EnergySiLi", "EnergySiLi");
   man->CreateNtupleDColumn("fEdepSiLi");
-  man->FinishNtuple(3);
+  man->FinishNtuple(1);
 }
 RunAction::~RunAction() {}
 void RunAction::BeginOfRunAction(const G4Run *run) {
