@@ -4,20 +4,12 @@ BroadTree::BroadTree(const char *filename) {
   aFilename = filename;
   aFile = new TFile(filename, "READ");
   if (aFile->IsOpen()) {
-    energyTreeCZT = static_cast<TTree *>(aFile->Get("BroadenedEnergyCZT;"));
-    energyTreeHPGe = static_cast<TTree *>(aFile->Get("BroadenedEnergyHPGe;"));
     energyTreeSiLi = static_cast<TTree *>(aFile->Get("BroadenedEnergySiLi"));
-    branchEnergyDepCZT = energyTreeCZT->GetBranch("fEdepCZT");
-    branchEnergyDepHPGe = energyTreeHPGe->GetBranch("fEdepHPGe");
     branchEnergyDepSiLi = energyTreeSiLi->GetBranch("fEdepSiLi");
   } else {
     std::cerr << "Failed to open the file: " << filename << std::endl;
     aFile = nullptr;
-    energyTreeCZT = nullptr;
-    energyTreeHPGe = nullptr;
     energyTreeSiLi = nullptr;
-    branchEnergyDepCZT = nullptr;
-    branchEnergyDepHPGe = nullptr;
     branchEnergyDepSiLi = nullptr;
   }
 }
@@ -66,7 +58,7 @@ TString BroadTree::generateRandomString() {
 
 TH1D *BroadTree::energySpectrumHist(const TString detectorName,
                                     double lowerBound = 0,
-                                    double upperBound = 100, int nbins = 829) {
+                                    double upperBound = 100, int nbins = 507) {
 
   double eDep;
   double etemp;
@@ -74,16 +66,8 @@ TH1D *BroadTree::energySpectrumHist(const TString detectorName,
   TH1D *hist = nullptr;
   TBranch *branchEnergyDep = nullptr;
 
-  if (detectorName == "CZT") {
-    entries = branchEnergyDepCZT->GetEntries();
-    branchEnergyDep = branchEnergyDepCZT;
-  } else if (detectorName == "HPGe") {
-    entries = branchEnergyDepHPGe->GetEntries();
-    branchEnergyDep = branchEnergyDepHPGe;
-  } else if (detectorName == "SiLi") {
-    entries = branchEnergyDepSiLi->GetEntries();
-    branchEnergyDep = branchEnergyDepSiLi;
-  }
+  entries = branchEnergyDepSiLi->GetEntries();
+  branchEnergyDep = branchEnergyDepSiLi;
 
   branchEnergyDep->SetAddress(&eDep);
   TString histName = generateRandomString();

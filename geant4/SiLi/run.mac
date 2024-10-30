@@ -9,4 +9,4 @@
 /gps/ene/mono 0.025 eV 
 /gps/ene/sigma 0.005 eV
 /gps/direction 0 0 1
-/run/beamOn 500000
+/run/beamOn 1000000000

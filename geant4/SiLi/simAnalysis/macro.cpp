@@ -5,12 +5,7 @@ void macro() {
   gROOT->SetBatch(kTRUE);
   Analysis *analysis = new Analysis();
   analysis->loadFiles();
-  analysis->drawHists("CZT", false);
-  analysis->drawPartialHists("CZT", 64.75, 72.75, false, 66);
-  // analysis->drawPartialHists("CZT", 64.75, 72.75, true, 66);
-  //    analysis->drawHists("HPGe");
-  //    analysis->drawPartialHists("HPGe", 68, 69.5);
-  //    analysis->drawHists("SiLi");
-  //    analysis->drawPartialHists("SiLi", 64.75, 72.75);
+  analysis->drawHists("SiLi", false);
+  analysis->drawPartialHists("SiLi", 66, 71.5, false, 28);
   delete analysis;
 }

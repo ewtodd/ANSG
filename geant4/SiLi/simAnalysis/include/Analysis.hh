@@ -43,12 +43,8 @@ private:
   BroadTree *tmBroad4;
   BroadTree *tmBroad5;
 
-  THStack *CZTStack;
-  THStack *HPGeStack;
   THStack *SiLiStack;
 
-  THStack *CZTStackPartial;
-  THStack *HPGeStackPartial;
   THStack *SiLiStackPartial;
 };
 

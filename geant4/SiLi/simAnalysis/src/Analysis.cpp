@@ -13,11 +13,7 @@ Analysis::Analysis() {
   tmBroad3 = nullptr;
   tmBroad4 = nullptr;
   tmBroad5 = nullptr;
-  CZTStack = new THStack();
-  HPGeStack = new THStack();
   SiLiStack = new THStack();
-  CZTStackPartial = new THStack();
-  HPGeStackPartial = new THStack();
   SiLiStackPartial = new THStack();
 }
 
@@ -34,10 +30,6 @@ Analysis::~Analysis() {
   delete tmBroad3;
   delete tmBroad4;
   delete tmBroad5;
-  delete CZTStack;
-  delete CZTStackPartial;
-  delete HPGeStack;
-  delete HPGeStackPartial;
   delete SiLiStack;
   delete SiLiStackPartial;
 }
@@ -72,13 +64,7 @@ void Analysis::drawHists(const TString detectorName, bool isNormed) {
   TString fileName = detectorName;
   TString yTitle = "Counts";
 
-  if (detectorName == "CZT") {
-    stack = CZTStack;
-  } else if (detectorName == "HPGe") {
-    stack = HPGeStack;
-  } else if (detectorName == "SiLi") {
-    stack = SiLiStack;
-  }
+  stack = SiLiStack;
   ClearTHStack(stack);
   TH1D *histBroad0 = tmBroad0->energySpectrumHist(detectorName);
   TH1D *histBroad1 = tmBroad1->energySpectrumHist(detectorName);
@@ -156,13 +142,7 @@ void Analysis::drawPartialHists(const TString detectorName, double lowerBound,
   THStack *stackPartial = nullptr;
   TString yTitle = "Log Counts";
 
-  if (detectorName == "CZT") {
-    stackPartial = CZTStackPartial;
-  } else if (detectorName == "HPGe") {
-    stackPartial = HPGeStackPartial;
-  } else if (detectorName == "SiLi") {
-    stackPartial = SiLiStackPartial;
-  }
+  stackPartial = SiLiStackPartial;
   ClearTHStack(stackPartial);
   TH1D *histBroad0 =
       tmBroad0->energySpectrumHist(detectorName, lowerBound, upperBound, nbins);

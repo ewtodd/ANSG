@@ -5,21 +5,13 @@ TreeModule::TreeModule(const char *filename, const char *broadenedFilename) {
   aFile = new TFile(filename, "READ");
   if (aFile->IsOpen()) {
     hitsTree = static_cast<TTree *>(aFile->Get("Hits"));
-    energyTreeCZT = static_cast<TTree *>(aFile->Get("EnergyCZT"));
-    energyTreeHPGe = static_cast<TTree *>(aFile->Get("EnergyHPGe"));
     energyTreeSiLi = static_cast<TTree *>(aFile->Get("EnergySiLi"));
-    branchEnergyDepCZT = energyTreeCZT->GetBranch("fEdepCZT");
-    branchEnergyDepHPGe = energyTreeHPGe->GetBranch("fEdepHPGe");
     branchEnergyDepSiLi = energyTreeSiLi->GetBranch("fEdepSiLi");
   } else {
     std::cerr << "Failed to open the file: " << filename << std::endl;
     aFile = nullptr;
     hitsTree = nullptr;
-    energyTreeCZT = nullptr;
-    energyTreeHPGe = nullptr;
     energyTreeSiLi = nullptr;
-    branchEnergyDepCZT = nullptr;
-    branchEnergyDepHPGe = nullptr;
     branchEnergyDepSiLi = nullptr;
   }
 
@@ -58,26 +50,8 @@ TH1D *TreeModule::createHistogram(TBranch *branch, const char *histName) {
   double FWHM = 0.;
   double res = 0.;
 
-  if (std::strcmp(histName, "CZT") == 0) {
-    res = 1.8 / 59.5;
-    std::cout << "Creating CZT histogram..." << std::endl;
-
-  } else if (std::strcmp(histName, "HPGe") == 0) {
-    res = 0.430 / 68.75;
-    std::cout << "NOT Creating HPGe histogram..." << std::endl;
-    TString histTitle =
-        TString::Format("%s Spectrum;Energy (keV);Entries", histName);
-    TH1D *hist = new TH1D(histName, histTitle, 10, 0, 10400);
-    return hist;
-
-  } else if (std::strcmp(histName, "SiLi") == 0) {
-    res = 0.165 / 5.9;
-    std::cout << "NOT Creating SiLi histogram..." << std::endl;
-    TString histTitle =
-        TString::Format("%s Spectrum;Energy (keV);Entries", histName);
-    TH1D *hist = new TH1D(histName, histTitle, 10, 0, 10400);
-    return hist;
-  }
+  res = 0.165 / 5.9;
+  std::cout << "Creating SiLi histogram..." << std::endl;
 
   FWHM = res * 68.752;
   int nbins = 1.3 * (10400) / (FWHM / 15);
@@ -159,29 +133,6 @@ void TreeModule::broadenAndStoreEnergy() {
   }
   broadenedFile
       ->cd(); // Ensure that we are working in the broadened file context
-
-  if (branchEnergyDepCZT) {
-    TTree *broadenedTreeCZT =
-        new TTree("BroadenedEnergyCZT", "Broadened Energy Spectrum for CZT");
-    TH1D *histCZT = createHistogram(branchEnergyDepCZT, "CZT");
-    TH1D *broadHistCZT = broadenedHist(histCZT, "CZT");
-    writeHistogramToTree(broadenedTreeCZT, broadHistCZT, "fEdepCZT");
-    broadenedTreeCZT->Write(); // Write the tree to the file
-    broadenedTreeCZT->Print();
-    delete histCZT;
-    delete broadHistCZT;
-  }
-
-  if (branchEnergyDepHPGe) {
-    TTree *broadenedTreeHPGe =
-        new TTree("BroadenedEnergyHPGe", "Broadened Energy Spectrum for HPGe");
-    TH1D *histHPGe = createHistogram(branchEnergyDepHPGe, "HPGe");
-    TH1D *broadHistHPGe = broadenedHist(histHPGe, "HPGe");
-    writeHistogramToTree(broadenedTreeHPGe, broadHistHPGe, "fEdepHPGe");
-    broadenedTreeHPGe->Write(); // Write the tree to the file
-    delete histHPGe;
-    delete broadHistHPGe;
-  }
 
   if (branchEnergyDepSiLi) {
     TTree *broadenedTreeSiLi =

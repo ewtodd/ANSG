@@ -16,11 +16,7 @@ private:
   TFile *aFile;
   TFile *broadenedFile;
   TTree *hitsTree;
-  TTree *energyTreeCZT;
-  TTree *energyTreeHPGe;
   TTree *energyTreeSiLi;
-  TBranch *branchEnergyDepCZT;
-  TBranch *branchEnergyDepHPGe;
   TBranch *branchEnergyDepSiLi;
   const char *aFilename;
 

@@ -16,11 +16,7 @@ class BroadTree {
 
 private:
   TFile *aFile;
-  TTree *energyTreeCZT;
-  TTree *energyTreeHPGe;
   TTree *energyTreeSiLi;
-  TBranch *branchEnergyDepCZT;
-  TBranch *branchEnergyDepHPGe;
   TBranch *branchEnergyDepSiLi;
   const char *aFilename;
 
@@ -28,11 +24,7 @@ public:
   BroadTree(const char *filename);
   ~BroadTree();
   TFile *getAFile() const { return aFile; };
-  TTree *getEnergyTreeCZT() const { return energyTreeCZT; };
-  TTree *getEnergyTreeHPGe() const { return energyTreeHPGe; };
   TTree *getEnergyTreeSiLi() const { return energyTreeSiLi; };
-  TBranch *getBranchEnergyCZT() const { return branchEnergyDepCZT; };
-  TBranch *getBranchEnergyHPGe() const { return branchEnergyDepHPGe; };
   TBranch *getBranchEnergySiLi() const { return branchEnergyDepSiLi; };
   const char *getFilename() { return aFilename; };
   TString getFormattedFilename();
