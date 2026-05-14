@@ -45,6 +45,17 @@ MODEL_PATH = os.path.join(ANALYSIS_CACHE_DIR, "xgb_regressor.pkl")
 SWEEP_CACHE_DIR = "sweep_cache"
 SHAP_SEEDS = [42, 123, 256]
 
+# Per-sample variance vs mean polynomial fit, sigma^2(mu) = p0 + p1*mu +
+# p2*mu^2, obtained interactively from variance_vs_mean.root via FitPanel.
+# Used to subtract the (electronic floor + shot + multiplicative) trend
+# from per-sample variance so the residual isolates jitter / other effects.
+ALPHA_VAR_QUAD_P0 = 15.6398
+ALPHA_VAR_QUAD_P1 = 2.82247
+ALPHA_VAR_QUAD_P2 = 0.0120903
+GAMMA_VAR_QUAD_P0 = 188.037
+GAMMA_VAR_QUAD_P1 = 1.08675
+GAMMA_VAR_QUAD_P2 = 0.0184931
+
 WHITE_SIGMAS_ADC = [1.0, 2.0, 5.0, 10.0, 15.0, 20.0]
 SHOT_MULTIPLIERS = [0.5, 1.0, 2.0, 3.0, 4.0, 5.0]
 NOISE_SEED = 42
@@ -481,17 +492,10 @@ def _plot_variance_vs_mean(alpha_test,
                            gamma_test,
                            output_name,
                            min_amplitude_frac=0.03):
-    """Per-sample sigma^2(t) vs mu(t) on a log-log plot, one point per
-    sample and per class. Pure Poisson shot noise predicts sigma^2 ~ mu
-    (slope 1 in log-log); flat regions indicate an electronic noise floor;
-    slope-2 regions indicate multiplicative noise. The TGraphs are saved
-    to a ROOT file in CACHE_DIR so they can be opened in TBrowser and
-    fitted interactively with the FitPanel.
-
-    Samples with mean amplitude below ``min_amplitude_frac`` * (per-class
-    peak mean) are excluded, since pre-trigger baseline and far-decay-tail
-    samples are noise-floor-dominated and scatter on the log-log plot
-    without informing the noise-budget question.
+    """Per-sample sigma^2(t) vs mu(t) on log-log axes -- bare-data plot
+    with no overlays. TGraphs are written to a ROOT file in CACHE_DIR
+    with linear (mu, sigma^2) coordinates so the file can be opened in
+    TBrowser and fitted interactively.
     """
     mean_a = np.mean(alpha_test, axis=0)
     var_a = np.var(alpha_test, axis=0)
@@ -502,9 +506,6 @@ def _plot_variance_vs_mean(alpha_test,
     thresh_g = min_amplitude_frac * float(mean_g.max())
     mask_a = (mean_a > thresh_a) & (var_a > 0)
     mask_g = (mean_g > thresh_g) & (var_g > 0)
-    print(f"  Keeping {int(mask_a.sum())}/{len(mean_a)} alpha samples and "
-          f"{int(mask_g.sum())}/{len(mean_g)} gamma samples "
-          f"(>= {min_amplitude_frac * 100:.1f}% of peak)")
     mu_a = mean_a[mask_a].astype(np.float64)
     v_a = var_a[mask_a].astype(np.float64)
     mu_g = mean_g[mask_g].astype(np.float64)
@@ -518,7 +519,7 @@ def _plot_variance_vs_mean(alpha_test,
 
     g_alpha = ROOT.TGraph(len(mu_a), mu_a, v_a)
     g_alpha.SetName("alpha_variance_vs_mean")
-    g_alpha.SetTitle(";#mu(t) [ADC];#sigma^{2}(t) [ADC^{2}]")
+    g_alpha.SetTitle("")
     g_alpha.SetMarkerColor(ROOT.kRed + 2)
     g_alpha.SetMarkerStyle(20)
     g_alpha.SetMarkerSize(0.9)
@@ -538,45 +539,12 @@ def _plot_variance_vs_mean(alpha_test,
 
     g_gamma = ROOT.TGraph(len(mu_g), mu_g, v_g)
     g_gamma.SetName("gamma_variance_vs_mean")
-    g_gamma.SetTitle(";#mu(t) [ADC];#sigma^{2}(t) [ADC^{2}]")
     g_gamma.SetMarkerColor(ROOT.kBlue + 2)
     g_gamma.SetMarkerStyle(21)
     g_gamma.SetMarkerSize(0.9)
     g_gamma.Draw("P SAME")
 
-    # Identify outliers via residuals from a global power-law fit (in log
-    # space). Points more than `outlier_n_sigma` * stddev off the trend get
-    # labeled with their original time-sample index so they can be matched
-    # back to a specific position on the waveform.
-    label_objs = []
-    outlier_n_sigma = 1.8
-    for class_name, color, mu_arr, v_arr, mask_arr in (
-        ("alpha", ROOT.kRed + 2, mu_a, v_a, mask_a),
-        ("gamma", ROOT.kBlue + 2, mu_g, v_g, mask_g),
-    ):
-        log_mu = np.log(mu_arr)
-        log_v = np.log(v_arr)
-        slope, intercept = np.polyfit(log_mu, log_v, 1)
-        residuals = log_v - (intercept + slope * log_mu)
-        thresh = outlier_n_sigma * float(np.std(residuals))
-        outlier_mask = np.abs(residuals) > thresh
-        kept_sample_indices = np.where(mask_arr)[0]
-        n_out = int(outlier_mask.sum())
-        print(f"  {class_name}: bulk power-law slope = {slope:.3f}, "
-              f"{n_out} outliers (>{outlier_n_sigma:.1f}sigma off-trend):")
-        for i in np.where(outlier_mask)[0]:
-            sample_idx = int(kept_sample_indices[i])
-            t_ns = sample_idx * 2
-            print(f"    sample {sample_idx:3d} (t = {t_ns} ns): "
-                  f"mu = {mu_arr[i]:.2f}, var = {v_arr[i]:.2f}, "
-                  f"residual = {residuals[i]:+.2f}")
-            lbl = ROOT.TLatex(mu_arr[i], v_arr[i], f" {sample_idx}")
-            lbl.SetTextSize(0.022)
-            lbl.SetTextColor(color)
-            lbl.Draw()
-            label_objs.append(lbl)
-
-    leg = ROOT.PlottingUtils.AddLegend(0.17, 0.35, 0.7, 0.88)
+    leg = ROOT.PlottingUtils.AddLegend(0.17, 0.35, 0.65, 0.88)
     leg.AddEntry(g_alpha, "Am-241 (#alpha)", "p")
     leg.AddEntry(g_gamma, "Na-22 (#gamma)", "p")
     leg.Draw()
@@ -586,25 +554,12 @@ def _plot_variance_vs_mean(alpha_test,
     canvas.Close()
     print(f"Saved {output_name}")
 
-    # Dump the full per-sample table (alpha + gamma, indexed by sample) to a
-    # text file alongside the ROOT file so non-outliers can also be inspected.
-    txt_path = os.path.join(CACHE_DIR, f"{output_name}.txt")
-    with open(txt_path, "w") as fh:
-        fh.write(
-            "# sample_idx  t_ns  mu_alpha  var_alpha  mu_gamma  var_gamma\n")
-        for s in range(len(mean_a)):
-            fh.write(f"{s:4d}  {s * 2:5d}  "
-                     f"{mean_a[s]:12.4f}  {var_a[s]:14.4f}  "
-                     f"{mean_g[s]:12.4f}  {var_g[s]:14.4f}\n")
-    print(f"Saved {txt_path}")
-
     root_path = os.path.join(CACHE_DIR, f"{output_name}.root")
     out_file = ROOT.TFile(root_path, "RECREATE")
     g_alpha.Write()
     g_gamma.Write()
     out_file.Close()
-    print(f"Saved {root_path} (open in TBrowser and right-click "
-          f"-> FitPanel to fit interactively)")
+    print(f"Saved {root_path}")
 
 
 def _load_xgb_shap_mean():
@@ -620,89 +575,420 @@ def _load_xgb_shap_mean():
     return np.mean(np.stack(arrs, axis=0), axis=0)
 
 
-def _plot_average_waveform_band(alpha_test, gamma_test, output_name):
-    """Single-pad plot of per-sample class-mean separation vs. within-class
-    spread, with the XGBoost SHAP attribution overlaid.
-
-    Statistics are computed on per-event-normalized waveforms (the same
-    process_waveforms output the model receives), so sigma_pool reflects
-    only the shape variation that the model actually sees -- not the LO
-    variation across events, which per-event peak normalization removes.
-
-      |Delta mu(t)| = |mean_alpha(t) - mean_gamma(t)|              (red)
-      sigma_pool(t) = sqrt(0.5 * (sigma_alpha^2 + sigma_gamma^2))  (blue)
-      XGBoost SHAP(t), rescaled to share the y-axis                (black, dashed)
-
-    |Delta mu| and sigma_pool are in the same normalized-amplitude units so
-    they are directly comparable; their ratio is the per-sample d'
-    discriminability. SHAP is rescaled to max(|Delta mu|, sigma_pool) so its
-    peak location can be visually compared.
+def _plot_shap_vs_variance(alpha_test, output_name):
+    """Per-sample max-normalized XGBoost SHAP importance vs per-sample
+    alpha variance. SHAP_norm = SHAP / max(SHAP) puts the single most
+    important feature at 1.0 so points near 1 are flagged as the model's
+    leaned-on features. High-variance samples that also have high SHAP
+    indicate the model is keying on noisy features.
     """
-    a_norm = process_waveforms(alpha_test)
-    g_norm = process_waveforms(gamma_test)
+    var_a = np.var(alpha_test, axis=0)
 
-    mean_a = np.mean(a_norm, axis=0)
-    std_a = np.std(a_norm, axis=0)
-    mean_g = np.mean(g_norm, axis=0)
-    std_g = np.std(g_norm, axis=0)
+    shap_mean = _load_xgb_shap_mean()
+    if shap_mean is None:
+        print(f"  SHAP cache not found in {SWEEP_CACHE_DIR}/, skipping "
+              f"{output_name}")
+        return
 
-    mean_diff = np.abs(mean_a - mean_g)
-    sigma_pool = np.sqrt(0.5 * (std_a**2 + std_g**2))
+    shap_max = float(shap_mean.max())
+    shap_norm = shap_mean / shap_max if shap_max > 0 else shap_mean
 
-    n_points = len(mean_a)
+    n = min(len(shap_norm), len(var_a))
+    if n < len(shap_norm) or n < len(var_a):
+        print(f"  Length mismatch: SHAP {len(shap_norm)} vs waveform "
+              f"{len(var_a)}; using first {n} samples")
+    var_plot = var_a[:n].astype(np.float64)
+    shap_plot = shap_norm[:n].astype(np.float64)
+
+    canvas = ROOT.PlottingUtils.GetConfiguredCanvas()
+    canvas.SetLogx(True)
+    canvas.SetLeftMargin(0.14)
+    canvas.SetRightMargin(0.04)
+
+    g = ROOT.TGraph(n, var_plot, shap_plot)
+    g.SetName("shap_vs_variance_alpha")
+    g.SetTitle("")
+    g.SetMarkerColor(ROOT.kRed + 2)
+    g.SetMarkerStyle(20)
+    g.SetMarkerSize(0.9)
+    g.GetXaxis().SetTitle("Per-sample alpha variance #sigma^{2}(t) [ADC^{2}]")
+    g.GetYaxis().SetTitle("SHAP / max(SHAP)")
+    g.GetYaxis().SetTitleOffset(1.2)
+    g.GetYaxis().SetRangeUser(0.0, 1.1)
+    g.Draw("AP")
+
+    ROOT.PlottingUtils.SaveFigure(canvas, output_name, "",
+                                  ROOT.PlotSaveOptions.kLOG)
+    canvas.Close()
+    print(f"Saved {output_name}")
+
+    root_path = os.path.join(CACHE_DIR, f"{output_name}.root")
+    out_file = ROOT.TFile(root_path, "RECREATE")
+    g.Write()
+    out_file.Close()
+    print(f"Saved {root_path}")
+
+    top10 = np.argsort(var_a[:n])[::-1][:10]
+    print(f"  Top 10 alpha-variance samples and their max-normalized SHAP:")
+    print(f"    sample_idx   t_ns   variance [ADC^2]   SHAP_norm")
+    for idx in top10:
+        print(f"    {int(idx):10d}   {int(idx) * 2:4d}   "
+              f"{float(var_a[idx]):16.2f}   {float(shap_norm[idx]):.4f}")
+
+
+def _plot_variance_vs_dmu_dt(alpha_test,
+                             gamma_test,
+                             output_name,
+                             min_amplitude_frac=0.03,
+                             n_top=7):
+    """Per-sample sigma^2(t) vs |dmu/dt|(t) on log-log axes. Per-event
+    timing jitter delta_t contributes Var(delta_t) * (dmu/dt)^2 to
+    sigma^2, so jitter-dominated samples should land on a slope-2 line
+    here. No subtraction or fit overlay -- pure data.
+    """
+    mean_a = np.mean(alpha_test, axis=0)
+    var_a = np.var(alpha_test, axis=0)
+    mean_g = np.mean(gamma_test, axis=0)
+    var_g = np.var(gamma_test, axis=0)
+
+    # dt = 2 ns/sample. np.gradient: centered differences interior,
+    # one-sided at the endpoints.
+    dmu_a = np.abs(np.gradient(mean_a) / 2.0)
+    dmu_g = np.abs(np.gradient(mean_g) / 2.0)
+
+    thresh_a = min_amplitude_frac * float(mean_a.max())
+    thresh_g = min_amplitude_frac * float(mean_g.max())
+    mask_a = (mean_a > thresh_a) & (var_a > 0) & (dmu_a > 0)
+    mask_g = (mean_g > thresh_g) & (var_g > 0) & (dmu_g > 0)
+
+    dx_a = dmu_a[mask_a].astype(np.float64)
+    v_a = var_a[mask_a].astype(np.float64)
+    dx_g = dmu_g[mask_g].astype(np.float64)
+    v_g = var_g[mask_g].astype(np.float64)
+
+    canvas = ROOT.PlottingUtils.GetConfiguredCanvas()
+    canvas.SetLogx(True)
+    canvas.SetLogy(True)
+    canvas.SetLeftMargin(0.14)
+    canvas.SetRightMargin(0.04)
+
+    g_alpha = ROOT.TGraph(len(dx_a), dx_a, v_a)
+    g_alpha.SetName("alpha_variance_vs_dmu_dt")
+    g_alpha.SetTitle("")
+    g_alpha.SetMarkerColor(ROOT.kRed + 2)
+    g_alpha.SetMarkerStyle(20)
+    g_alpha.SetMarkerSize(0.9)
+    g_alpha.GetXaxis().SetTitle("|d#mu/dt|(t) [ADC/ns]")
+    g_alpha.GetYaxis().SetTitle("Per-sample variance #sigma^{2}(t) [ADC^{2}]")
+    g_alpha.GetYaxis().SetTitleOffset(1.2)
+
+    all_dx = np.concatenate([dx_a, dx_g])
+    all_v = np.concatenate([v_a, v_g])
+    x_lo = float(all_dx.min()) * 0.5
+    x_hi = float(all_dx.max()) * 2.0
+    v_lo = float(all_v.min()) * 0.5
+    v_hi = float(all_v.max()) * 2.0
+    g_alpha.GetXaxis().SetLimits(x_lo, x_hi)
+    g_alpha.GetYaxis().SetRangeUser(v_lo, v_hi)
+    g_alpha.Draw("AP")
+
+    g_gamma = ROOT.TGraph(len(dx_g), dx_g, v_g)
+    g_gamma.SetName("gamma_variance_vs_dmu_dt")
+    g_gamma.SetMarkerColor(ROOT.kBlue + 2)
+    g_gamma.SetMarkerStyle(21)
+    g_gamma.SetMarkerSize(0.9)
+    g_gamma.Draw("P SAME")
+
+    # Annotate the n_top alpha samples with the largest |dmu/dt|. order_in_dx
+    # is descending so labels are listed from largest to smallest.
+    sample_idx_a = np.where(mask_a)[0]
+    order_in_dx = np.argsort(dx_a)[::-1][:n_top]
+    top_orig_idx = sample_idx_a[order_in_dx]
+
+    label_objs = []
+    for j, orig_idx in zip(order_in_dx, top_orig_idx):
+        lbl = ROOT.TLatex(float(dx_a[j]), float(v_a[j]), f" {int(orig_idx)}")
+        lbl.SetTextSize(0.022)
+        lbl.SetTextColor(ROOT.kRed + 2)
+        lbl.Draw()
+        label_objs.append(lbl)
+
+    leg = ROOT.PlottingUtils.AddLegend(0.17, 0.35, 0.5, 0.88)
+    leg.AddEntry(g_alpha, "Am-241 (#alpha)", "p")
+    leg.AddEntry(g_gamma, "Na-22 (#gamma)", "p")
+    leg.Draw()
+
+    ROOT.PlottingUtils.SaveFigure(canvas, output_name, "",
+                                  ROOT.PlotSaveOptions.kLOG)
+    canvas.Close()
+    print(f"Saved {output_name}")
+
+    # Print SHAP values (normalized so max over all features = 1) at the
+    # top-n_top |dmu/dt| sample indices. SHAP_norm = 1 marks the single most
+    # important feature; values near 1 flag samples nearly as important.
+    shap_mean = _load_xgb_shap_mean()
+    if shap_mean is None:
+        print(
+            f"  SHAP cache not found in {SWEEP_CACHE_DIR}/, skipping printout")
+    else:
+        shap_max = float(shap_mean.max())
+        shap_norm = shap_mean / shap_max if shap_max > 0 else shap_mean
+        print(f"  Top {n_top} |d#mu/dt| alpha samples and their normalized "
+              f"SHAP (max-normalized, SHAP length = {len(shap_mean)}):")
+        print(f"    sample_idx   t_ns   |dmu/dt| [ADC/ns]   SHAP_norm")
+        for orig_idx in top_orig_idx:
+            shap_val = (float(shap_norm[orig_idx])
+                        if orig_idx < len(shap_norm) else float("nan"))
+            print(f"    {int(orig_idx):10d}   {int(orig_idx) * 2:4d}   "
+                  f"{float(dmu_a[orig_idx]):17.4f}   {shap_val:.4f}")
+
+    root_path = os.path.join(CACHE_DIR, f"{output_name}.root")
+    out_file = ROOT.TFile(root_path, "RECREATE")
+    g_alpha.Write()
+    g_gamma.Write()
+    out_file.Close()
+    print(f"Saved {root_path}")
+
+
+def _plot_avg_waveform_outliers(test_data,
+                                output_name,
+                                p0,
+                                p1,
+                                p2,
+                                class_tag,
+                                marker_color,
+                                marker_style=20,
+                                min_amplitude_frac=0.03,
+                                residual_threshold=500.0):
+    """Plot the class-average waveform (max-normalized) with max-normalized
+    XGBoost SHAP overlaid. Samples whose quadratic-fit residual exceeds
+    residual_threshold are highlighted as colored markers on the waveform,
+    matching the labels on {class_tag}_quadratic_residual.png.
+
+    Layout matches the feature-importance plots in parameter_study.py:
+    gray average waveform, colored overlay, linear axes, time on x (ns).
+    class_tag is the legend root symbol (e.g., "alpha" -> "#alpha").
+    """
+    mean_w = np.mean(test_data, axis=0)
+    var_w = np.var(test_data, axis=0)
+
+    thresh = min_amplitude_frac * float(mean_w.max())
+    mask = (mean_w > thresh) & (var_w > 0)
+    sample_indices_kept = np.where(mask)[0]
+    mu = mean_w[mask].astype(np.float64)
+    v = var_w[mask].astype(np.float64)
+    fit_v = p0 + p1 * mu + p2 * mu**2
+    residual = v - fit_v
+    above = residual > residual_threshold
+    outlier_orig_idx = sample_indices_kept[above]
+
+    wf_max = float(np.max(mean_w))
+    avg_wf_norm = mean_w / wf_max if wf_max > 0 else mean_w
+
+    n_points = len(mean_w)
     x_values = np.arange(n_points, dtype=np.float64) * 2
 
     canvas = ROOT.PlottingUtils.GetConfiguredCanvas()
 
-    g_mean_diff = ROOT.TGraph(n_points, x_values, mean_diff.astype(np.float64))
-    g_mean_diff.SetLineColor(ROOT.kRed + 2)
-    g_mean_diff.SetLineWidth(ROOT.PlottingUtils.GetLineWidth())
-    g_mean_diff.SetTitle("")
-    g_mean_diff.GetXaxis().SetTitle("Time [ns]")
-    g_mean_diff.GetYaxis().SetTitle("Amplitude [a.u.]")
-    g_mean_diff.GetYaxis().SetTitleOffset(1)
-    g_mean_diff.GetXaxis().SetRangeUser(0, x_values[-1])
+    g_wf = ROOT.TGraph(n_points, x_values, avg_wf_norm.astype(np.float64))
+    g_wf.SetLineColor(ROOT.kGray + 2)
+    g_wf.SetLineWidth(ROOT.PlottingUtils.GetLineWidth())
+    g_wf.SetTitle("")
+    g_wf.GetXaxis().SetTitle("Time [ns]")
+    g_wf.GetYaxis().SetTitle("Normalized Amplitude [a.u.]")
+    g_wf.GetXaxis().SetRangeUser(0, x_values[-1])
+    g_wf.GetYaxis().SetRangeUser(-0.1, 1.1)
+    g_wf.Draw("AL")
 
-    g_sigma_pool = ROOT.TGraph(n_points, x_values,
-                               sigma_pool.astype(np.float64))
-    g_sigma_pool.SetLineColor(ROOT.kBlue + 2)
-    g_sigma_pool.SetLineWidth(ROOT.PlottingUtils.GetLineWidth())
-
-    plot_max = max(float(mean_diff.max()), float(sigma_pool.max()))
-
-    shap_mean = _load_xgb_shap_mean()
     g_shap = None
-    if shap_mean is not None and len(shap_mean) == n_points:
-        shap_scaled = shap_mean * (plot_max / float(shap_mean.max()))
-        g_shap = ROOT.TGraph(n_points, x_values,
-                             shap_scaled.astype(np.float64))
-        g_shap.SetLineColor(ROOT.kBlack)
-        g_shap.SetLineStyle(2)
-        g_shap.SetLineWidth(ROOT.PlottingUtils.GetLineWidth())
-    elif shap_mean is not None:
-        print(f"  Skipping SHAP overlay: SHAP length {len(shap_mean)} != "
-              f"waveform length {n_points}")
+    shap_mean = _load_xgb_shap_mean()
+    if shap_mean is None:
+        print(f"  SHAP cache not found in {SWEEP_CACHE_DIR}/, no SHAP overlay")
     else:
-        print(f"  Skipping SHAP overlay: no cached SHAP values found in "
-              f"{SWEEP_CACHE_DIR}")
-
-    g_mean_diff.GetYaxis().SetRangeUser(0, plot_max * 1.15)
-    g_mean_diff.Draw("AL")
-    g_sigma_pool.Draw("L SAME")
-    if g_shap is not None:
+        shap_max = float(np.max(shap_mean))
+        shap_norm = (shap_mean /
+                     shap_max if shap_max > 0 else shap_mean).astype(
+                         np.float64)
+        n_shap = min(len(shap_norm), n_points)
+        g_shap = ROOT.TGraph(n_shap, x_values[:n_shap], shap_norm[:n_shap])
+        g_shap.SetLineColor(ROOT.kBlack)
+        g_shap.SetLineWidth(ROOT.PlottingUtils.GetLineWidth())
         g_shap.Draw("L SAME")
 
-    leg = ROOT.PlottingUtils.AddLegend(0.6, 0.95, 0.65, 0.78)
-    leg.AddEntry(g_mean_diff, "|#Delta#mu(t)|", "l")
-    leg.AddEntry(g_sigma_pool, "#sigma_{pool}(t)", "l")
+    g_outliers = None
+    if len(outlier_orig_idx) > 0:
+        outlier_t = (outlier_orig_idx.astype(np.float64) * 2)
+        outlier_y = avg_wf_norm[outlier_orig_idx].astype(np.float64)
+        g_outliers = ROOT.TGraph(len(outlier_orig_idx), outlier_t, outlier_y)
+        g_outliers.SetMarkerStyle(marker_style)
+        g_outliers.SetMarkerColor(marker_color)
+        g_outliers.SetMarkerSize(1.4)
+        g_outliers.Draw("P SAME")
+
+    leg = ROOT.PlottingUtils.AddLegend(0.5, 0.88, 0.6, 0.74)
+    leg.AddEntry(g_wf, f"Average #{class_tag} Waveform", "l")
     if g_shap is not None:
-        leg.AddEntry(g_shap, "XGBoost SHAP (rescaled)", "l")
+        leg.AddEntry(g_shap, "SHAP / max(SHAP)", "l")
+    if g_outliers is not None:
+        leg.AddEntry(g_outliers,
+                     f"Residual > {residual_threshold:g} ADC^{{2}}", "p")
+    leg.SetMargin(0.1)
     leg.Draw()
 
     ROOT.PlottingUtils.SaveFigure(canvas, output_name, "",
                                   ROOT.PlotSaveOptions.kLINEAR)
     canvas.Close()
     print(f"Saved {output_name}")
+
+
+def _plot_quadratic_residual(test_data,
+                             output_name,
+                             p0,
+                             p1,
+                             p2,
+                             class_tag,
+                             marker_color,
+                             marker_style=20,
+                             min_amplitude_frac=0.03,
+                             residual_threshold=500.0):
+    """Subtract the interactively-fitted quadratic sigma^2_fit(mu) = p0 +
+    p1*mu + p2*mu^2 from class_tag per-sample variance, then plot the
+    residual against (dmu/dt)^2.
+
+    Per-event timing jitter delta_t contributes Var(delta_t) * (dmu/dt)^2
+    to sigma^2(t). If the quadratic absorbs only the floor, shot, and
+    multiplicative terms, the residual vs (dmu/dt)^2 scatter should be
+    linear through origin with slope = Var(delta_t).
+
+    Samples whose residual exceeds residual_threshold are labeled with
+    their time (sample_idx * 2 ns) on the main plot, and a companion plot
+    of their residual vs max-normalized XGBoost SHAP is saved as
+    "{output_name}_vs_shap.png".
+    """
+    mean_w = np.mean(test_data, axis=0)
+    var_w = np.var(test_data, axis=0)
+
+    thresh = min_amplitude_frac * float(mean_w.max())
+    mask = (mean_w > thresh) & (var_w > 0)
+    sample_indices_kept = np.where(mask)[0]
+    mu = mean_w[mask].astype(np.float64)
+    v = var_w[mask].astype(np.float64)
+
+    fit_v = p0 + p1 * mu + p2 * mu**2
+    residual = v - fit_v
+
+    # dt = 2 ns/sample. Per-event jitter contributes Var(delta_t) *
+    # (dmu/dt)^2 to sigma^2, so plotting vs (dmu/dt)^2 should be linear.
+    dmu_dt = np.gradient(mean_w) / 2.0
+    dx = (dmu_dt[mask]**2).astype(np.float64)
+
+    above = residual > residual_threshold
+    outlier_sample_indices = sample_indices_kept[above]
+
+    print(f"  {class_tag.capitalize()} quadratic residual: "
+          f"p0 = {p0}, p1 = {p1}, p2 = {p2}")
+    print(f"  Residual range = [{float(residual.min()):.2f}, "
+          f"{float(residual.max()):.2f}] ADC^2 over {len(dx)} samples")
+    print(f"  {int(above.sum())} samples with residual > "
+          f"{residual_threshold:g} ADC^2:")
+    for i in np.where(above)[0]:
+        s = int(sample_indices_kept[i])
+        print(f"    sample {s:3d} (t = {s * 2:4d} ns): "
+              f"residual = {float(residual[i]):.2f}, "
+              f"(dmu/dt)^2 = {float(dx[i]):.3f}")
+
+    canvas = ROOT.PlottingUtils.GetConfiguredCanvas()
+    canvas.SetLeftMargin(0.18)
+    canvas.SetRightMargin(0.04)
+
+    g = ROOT.TGraph(len(dx), dx, residual.astype(np.float64))
+    g.SetName(f"{class_tag}_quadratic_residual_vs_dmu_dt_sq")
+    g.SetTitle("")
+    g.SetMarkerStyle(marker_style)
+    g.SetMarkerSize(0.9)
+    g.SetMarkerColor(marker_color)
+    g.GetXaxis().SetTitle("(d#mu/dt)^{2} [(ADC/ns)^{2}]")
+    g.GetYaxis().SetTitle(
+        "#sigma^{2}(t) #minus (p_{0} + p_{1}#mu + p_{2}#mu^{2}) [ADC^{2}]")
+    g.GetYaxis().SetTitleOffset(1.5)
+    g.GetXaxis().SetNdivisions(505)
+    g.Draw("AP")
+
+    label_objs = []
+    for i in np.where(above)[0]:
+        s = int(sample_indices_kept[i])
+        lbl = ROOT.TLatex(float(dx[i]), float(residual[i]), f" {s * 2}")
+        lbl.SetTextSize(0.022)
+        lbl.SetTextColor(marker_color)
+        lbl.Draw()
+        label_objs.append(lbl)
+
+    ROOT.PlottingUtils.SaveFigure(canvas, output_name, "",
+                                  ROOT.PlotSaveOptions.kLINEAR)
+    canvas.Close()
+    print(f"Saved {output_name}")
+
+    root_path = os.path.join(CACHE_DIR, f"{output_name}.root")
+    out_file = ROOT.TFile(root_path, "RECREATE")
+    g.Write()
+    out_file.Close()
+    print(f"Saved {root_path}")
+
+    # Companion plot: residual vs max-normalized SHAP for the outlier samples.
+    if not above.any():
+        return
+    shap_mean = _load_xgb_shap_mean()
+    if shap_mean is None:
+        print(f"  SHAP cache not found in {SWEEP_CACHE_DIR}/, skipping "
+              f"residual-vs-SHAP companion plot")
+        return
+    shap_max = float(shap_mean.max())
+    shap_norm = shap_mean / shap_max if shap_max > 0 else shap_mean
+
+    outlier_residual = residual[above].astype(np.float64)
+    outlier_shap = np.array([
+        float(shap_norm[s]) if s < len(shap_norm) else float("nan")
+        for s in outlier_sample_indices
+    ],
+                            dtype=np.float64)
+
+    canvas2 = ROOT.PlottingUtils.GetConfiguredCanvas()
+    canvas2.SetLeftMargin(0.14)
+    canvas2.SetRightMargin(0.04)
+
+    g_shap = ROOT.TGraph(len(outlier_sample_indices), outlier_shap,
+                         outlier_residual)
+    g_shap.SetName(f"{class_tag}_outlier_residual_vs_shap_norm")
+    g_shap.SetTitle("")
+    g_shap.SetMarkerStyle(marker_style)
+    g_shap.SetMarkerSize(0.9)
+    g_shap.SetMarkerColor(marker_color)
+    g_shap.GetXaxis().SetTitle("SHAP / max(SHAP)")
+    g_shap.GetYaxis().SetTitle(
+        "#sigma^{2}(t) #minus (p_{0} + p_{1}#mu + p_{2}#mu^{2}) [ADC^{2}]")
+    g_shap.GetYaxis().SetTitleOffset(1.4)
+    g_shap.GetXaxis().SetLimits(0.0, 1.05)
+    g_shap.Draw("AP")
+
+    shap_label_objs = []
+    for x, y, s in zip(outlier_shap, outlier_residual, outlier_sample_indices):
+        lbl = ROOT.TLatex(float(x), float(y), f" {int(s) * 2}")
+        lbl.SetTextSize(0.022)
+        lbl.SetTextColor(marker_color)
+        lbl.Draw()
+        shap_label_objs.append(lbl)
+
+    output_name_shap = f"{output_name}_vs_shap"
+    ROOT.PlottingUtils.SaveFigure(canvas2, output_name_shap, "",
+                                  ROOT.PlotSaveOptions.kLINEAR)
+    canvas2.Close()
+    print(f"Saved {output_name_shap}")
+
+    root_path_shap = os.path.join(CACHE_DIR, f"{output_name_shap}.root")
+    out_file_shap = ROOT.TFile(root_path_shap, "RECREATE")
+    g_shap.Write()
+    out_file_shap.Close()
+    print(f"Saved {root_path_shap}")
 
 
 def _plot_two_curves(levels, aucs_test_only, aucs_matched, baseline_auc,
@@ -941,11 +1227,54 @@ def main():
     _plot_noise_light_output(a_test, g_test, results["shot_multipliers"],
                              _add_shot_noise, "m", "", "noise_lo_shot")
 
-    print("Plotting per-sample mean +/- sigma waveform band per class...")
-    _plot_average_waveform_band(a_test, g_test, "average_waveform_band")
-
     print("Plotting per-sample variance vs mean (shot-noise diagnostic)...")
     _plot_variance_vs_mean(a_test, g_test, "variance_vs_mean")
+
+    print("Plotting variance vs |dmu/dt| (direct jitter diagnostic)...")
+    _plot_variance_vs_dmu_dt(a_test, g_test, "variance_vs_dmu_dt")
+
+    print("Plotting normalized SHAP vs alpha variance...")
+    _plot_shap_vs_variance(a_test, "shap_vs_variance_alpha")
+
+    print("Plotting alpha quadratic-fit residual vs (dmu/dt)^2...")
+    _plot_quadratic_residual(a_test,
+                             "alpha_quadratic_residual",
+                             ALPHA_VAR_QUAD_P0,
+                             ALPHA_VAR_QUAD_P1,
+                             ALPHA_VAR_QUAD_P2,
+                             "alpha",
+                             ROOT.kRed + 2,
+                             marker_style=20)
+
+    print("Plotting gamma quadratic-fit residual vs (dmu/dt)^2...")
+    _plot_quadratic_residual(g_test,
+                             "gamma_quadratic_residual",
+                             GAMMA_VAR_QUAD_P0,
+                             GAMMA_VAR_QUAD_P1,
+                             GAMMA_VAR_QUAD_P2,
+                             "gamma",
+                             ROOT.kBlue + 2,
+                             marker_style=21)
+
+    print("Plotting alpha average waveform with residual outliers + SHAP...")
+    _plot_avg_waveform_outliers(a_test,
+                                "alpha_avg_waveform_outliers",
+                                ALPHA_VAR_QUAD_P0,
+                                ALPHA_VAR_QUAD_P1,
+                                ALPHA_VAR_QUAD_P2,
+                                "alpha",
+                                ROOT.kRed + 2,
+                                marker_style=20)
+
+    print("Plotting gamma average waveform with residual outliers + SHAP...")
+    _plot_avg_waveform_outliers(g_test,
+                                "gamma_avg_waveform_outliers",
+                                GAMMA_VAR_QUAD_P0,
+                                GAMMA_VAR_QUAD_P1,
+                                GAMMA_VAR_QUAD_P2,
+                                "gamma",
+                                ROOT.kBlue + 2,
+                                marker_style=21)
 
     _save_latex_table(results, os.path.join(CACHE_DIR, "noise_table.txt"))
 
