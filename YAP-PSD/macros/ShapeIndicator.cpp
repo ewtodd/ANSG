@@ -18,11 +18,12 @@ const SpectralCuts CUTS;
 
 void CalculateAverageWaveforms(const std::vector<TString> output_names,
                                const SpectralCuts &cuts = CUTS) {
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
   Int_t n_files = output_names.size();
   for (Int_t entry = 0; entry < n_files; entry++) {
     TString output_name = output_names.at(entry);
 
-    TString filename = "root_files/" + output_name + ".root";
+    TString filename = project_root + "/root_files/" + output_name + ".root";
 
     TFile *wf_file = TFile::Open(filename, "UPDATE");
     if (!wf_file || wf_file->IsZombie()) {
@@ -114,12 +115,15 @@ void CalculateAverageWaveforms(const std::vector<TString> output_names,
 
 void CalculateRawWeightingFunction(const TString alpha_output_name,
                                    const TString gamma_output_name) {
-  TString alpha_filename = "root_files/" + alpha_output_name + ".root";
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  TString alpha_filename =
+      project_root + "/root_files/" + alpha_output_name + ".root";
   TFile *alpha_file = TFile::Open(alpha_filename, "UPDATE");
   TGraph *alpha_average =
       static_cast<TGraph *>(alpha_file->Get("average_waveform"));
 
-  TString gamma_filename = "root_files/" + gamma_output_name + ".root";
+  TString gamma_filename =
+      project_root + "/root_files/" + gamma_output_name + ".root";
   TFile *gamma_file = TFile::Open(gamma_filename, "UPDATE");
   TGraph *gamma_average =
       static_cast<TGraph *>(gamma_file->Get("average_waveform"));
@@ -140,8 +144,8 @@ void CalculateRawWeightingFunction(const TString alpha_output_name,
   TCanvas *canvas = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDrawGraph(wf, kAzure,
                                        ";Sample [2 ns];Amplitude [a.u.]");
-  PlottingUtils::SaveFigure(canvas, "raw_weighting_function",
-                            "", PlotSaveOptions::kLINEAR);
+  PlottingUtils::SaveFigure(canvas, "raw_weighting_function", "",
+                            PlotSaveOptions::kLINEAR);
 
   alpha_file->cd();
   wf->Write("raw_weighting_function", TObject::kOverwrite);
@@ -153,12 +157,15 @@ void CalculateRawWeightingFunction(const TString alpha_output_name,
 
 void CalculateCleanWeightingFunction(const TString alpha_output_name,
                                      const TString gamma_output_name) {
-  TString alpha_filename = "root_files/" + alpha_output_name + ".root";
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  TString alpha_filename =
+      project_root + "/root_files/" + alpha_output_name + ".root";
   TFile *alpha_file = TFile::Open(alpha_filename, "UPDATE");
   TGraph *alpha_average =
       static_cast<TGraph *>(alpha_file->Get("average_waveform"));
 
-  TString gamma_filename = "root_files/" + gamma_output_name + ".root";
+  TString gamma_filename =
+      project_root + "/root_files/" + gamma_output_name + ".root";
   TFile *gamma_file = TFile::Open(gamma_filename, "UPDATE");
   TGraph *gamma_average =
       static_cast<TGraph *>(gamma_file->Get("average_waveform"));
@@ -216,8 +223,8 @@ void CalculateCleanWeightingFunction(const TString alpha_output_name,
   leg->AddEntry(gamma_average, "f_{#gamma}(t) (Na-22)", "l");
   leg->AddEntry(wf, "Weighting function p(t)", "l");
 
-  PlottingUtils::SaveFigure(canvas, "clean_weighting_function",
-                            "", PlotSaveOptions::kLINEAR);
+  PlottingUtils::SaveFigure(canvas, "clean_weighting_function", "",
+                            PlotSaveOptions::kLINEAR);
 
   alpha_file->cd();
   wf->Write("clean_weighting_function", TObject::kOverwrite);
@@ -228,13 +235,14 @@ void CalculateCleanWeightingFunction(const TString alpha_output_name,
 }
 
 void CalculateShapeIndicator(const std::vector<TString> output_names) {
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
   Int_t n_files = output_names.size();
   TGraph *raw_weighting_function = nullptr;
   TGraph *clean_weighting_function = nullptr;
 
   for (Int_t entry = 0; entry < n_files; entry++) {
     TString output_name = output_names.at(entry);
-    TString filepath = "root_files/" + output_name + ".root";
+    TString filepath = project_root + "/root_files/" + output_name + ".root";
     TFile *file = new TFile(filepath, "UPDATE");
     TTree *tree = static_cast<TTree *>(file->Get("features"));
 
@@ -327,11 +335,12 @@ void CalculateShapeIndicator(const std::vector<TString> output_names) {
 }
 
 void PlotShapeIndicator(const std::vector<TString> output_names) {
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
   Int_t n_files = output_names.size();
 
   for (Int_t entry = 0; entry < n_files; entry++) {
     TString output_name = output_names.at(entry);
-    TString filepath = "root_files/" + output_name + ".root";
+    TString filepath = project_root + "/root_files/" + output_name + ".root";
     TFile *file = new TFile(filepath, "UPDATE");
     TTree *tree = static_cast<TTree *>(file->Get("features"));
 
@@ -360,8 +369,8 @@ void PlotShapeIndicator(const std::vector<TString> output_names) {
     PlottingUtils::ConfigureAndDraw2DHistogram(
         clean_shape_indicator_vs_LO, clean_canvas,
         ";Light Output [keVee]; PSP_{SI}");
-    PlottingUtils::SaveFigure(clean_canvas, "clean_si_vs_lo_" + output_name,
-                              "", PlotSaveOptions::kLINEAR);
+    PlottingUtils::SaveFigure(clean_canvas, "clean_si_vs_lo_" + output_name, "",
+                              PlotSaveOptions::kLINEAR);
 
     clean_shape_indicator_vs_LO->Write("clean_shape_indicator_vs_LO",
                                        TObject::kOverwrite);
@@ -375,7 +384,8 @@ void PlotShapeIndicator(const std::vector<TString> output_names) {
 
 std::vector<Float_t> LoadSIValues(const TString &output_name,
                                   const SpectralCuts &cuts) {
-  TString filepath = "root_files/" + output_name + ".root";
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  TString filepath = project_root + "/root_files/" + output_name + ".root";
   TFile *file = new TFile(filepath, "READ");
   TTree *tree = static_cast<TTree *>(file->Get("features"));
 
@@ -414,7 +424,7 @@ TF1 *FitSIGaussian(TH1F *hist) {
   fit->SetParLimits(1, Constants::SI_HIST_XMIN, Constants::SI_HIST_XMAX);
   fit->SetParLimits(2, 0, 1);
 
-  Int_t status = hist->Fit(fit, "LRQSN");
+  Int_t status = hist->Fit(fit, "RQSN");
   if (status != 0) {
     delete fit;
     return nullptr;
@@ -523,28 +533,29 @@ void PlotBestSIFOM(const SpectralCuts &cuts = CUTS) {
   leg->AddEntry((TObject *)0, fom_text, "");
   leg->Draw();
 
-  PlottingUtils::SaveFigure(canvas, "best_si_fom_" + gamma_label,
-                            "", PlotSaveOptions::kLOG);
+  PlottingUtils::SaveFigure(canvas, "best_si_fom_" + gamma_label, "",
+                            PlotSaveOptions::kLOG);
 
   delete fit_alpha;
   delete fit_gamma;
-  delete draw_fit_alpha;
-  delete draw_fit_gamma;
   delete canvas;
   delete hist_alpha;
   delete hist_gamma;
 }
 
 void ShapeIndicator() {
-  Bool_t recalculate_average = kFALSE;
-  Bool_t recalculate_si = kFALSE;
-  Bool_t replot_si = kFALSE;
+  Bool_t recalculate_average = kTRUE;
+  Bool_t recalculate_si = kTRUE;
+  Bool_t replot_si = kTRUE;
 
-  InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT);
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT, project_root + "/plots",
+                                project_root + "/root_files");
 
   if (recalculate_average)
     CalculateAverageWaveforms(Constants::SINGLE_OUTPUT_NAMES);
 
+  CalculateRawWeightingFunction(Constants::AM241, Constants::NA22);
   CalculateCleanWeightingFunction(Constants::AM241, Constants::NA22);
 
   if (recalculate_si)

@@ -3,7 +3,18 @@
 #include "PlottingUtils.hpp"
 #include "WaveformProcessingUtils.hpp"
 #include <TROOT.h>
+#include <TString.h>
+#include <TSystem.h>
 #include <vector>
+
+namespace Paths {
+inline TString ProjectRootOf(const char *file) {
+  TString path = file;
+  path.ReplaceAll("/./", "/");
+  TString macros_dir = gSystem->DirName(path);
+  return gSystem->DirName(macros_dir);
+}
+} // namespace Paths
 
 namespace Constants {
 
@@ -59,28 +70,21 @@ const std::vector<TString> ALL_OUTPUT_NAMES = {
 
 const std::vector<TString> SINGLE_OUTPUT_NAMES = {AM241, CS137, NA22, CO60};
 
-const TString AM241_FILEPATH =
-    "../input_files/DataR_CH0@DT5730B_680_YAP_Am241.root";
-const TString CS137_FILEPATH =
-    "../input_files/DataR_CH0@DT5730B_680_YAP_Cs137.root";
-const TString NA22_FILEPATH =
-    "../input_files/DataR_CH0@DT5730B_680_YAP_Na22.root";
-const TString CO60_FILEPATH =
-    "../input_files/DataR_CH0@DT5730B_680_YAP_Co60.root";
-const TString AM241_AND_CS137_FILEPATH =
-    "../input_files/DataR_CH0@DT5730B_680_YAP_Am241Cs137.root";
-const TString AM241_AND_NA22_FILEPATH =
-    "../input_files/DataR_CH0@DT5730B_680_YAP_Am241Na22.root";
-const TString AM241_AND_CO60_FILEPATH =
-    "../input_files/DataR_CH0@DT5730B_680_YAP_Am241Co60.root";
+const TString AM241_FILENAME = "DataR_Am241.root";
+const TString CS137_FILENAME = "DataR_Cs137.root";
+const TString NA22_FILENAME = "DataR_Na22.root";
+const TString CO60_FILENAME = "DataR_Co60.root";
+const TString AM241_AND_CS137_FILENAME = "DataR_Am241Cs137.root";
+const TString AM241_AND_NA22_FILENAME = "DataR_Am241Na22.root";
+const TString AM241_AND_CO60_FILENAME = "DataR_Am241Co60.root";
 
-const std::vector<TString> ALL_FILEPATHS = {
-    AM241_FILEPATH,         CS137_FILEPATH,           NA22_FILEPATH,
-    CO60_FILEPATH,          AM241_AND_CS137_FILEPATH, AM241_AND_NA22_FILEPATH,
-    AM241_AND_CO60_FILEPATH};
+const std::vector<TString> ALL_FILENAMES = {
+    AM241_FILENAME,         CS137_FILENAME,           NA22_FILENAME,
+    CO60_FILENAME,          AM241_AND_CS137_FILENAME, AM241_AND_NA22_FILENAME,
+    AM241_AND_CO60_FILENAME};
 
-const std::vector<TString> SINGLE_FILEPATHS = {AM241_FILEPATH, CS137_FILEPATH,
-                                               NA22_FILEPATH, CO60_FILEPATH};
+const std::vector<TString> SINGLE_FILENAMES = {AM241_FILENAME, CS137_FILENAME,
+                                               NA22_FILENAME, CO60_FILENAME};
 
 const TString AM241_LABEL = "Am-241";
 const TString CS137_LABEL = "Cs-137";

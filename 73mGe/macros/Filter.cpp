@@ -1,4 +1,5 @@
 #include "Constants.hpp"
+#include "IOUtils.hpp"
 #include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
 #include <TFile.h>
@@ -8,11 +9,64 @@
 #include <TROOT.h>
 #include <TSpectrum.h>
 #include <TTree.h>
+#include <cstdlib>
 #include <future>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 static std::mutex print_mutex;
+
+static std::vector<std::vector<Float_t>> g_pixel_gain;
+
+static void LoadPixelGainOrDie() {
+  TFile *file = IO::OpenForReading("pixel_calibration.root");
+  if (!file || file->IsZombie()) {
+    std::cerr << "ERROR: cannot open root_files/pixel_calibration.root. "
+                 "Run PixelCalibration first."
+              << std::endl;
+    std::exit(1);
+  }
+  TH2D *gain = static_cast<TH2D *>(file->Get("pixel_gain"));
+  if (!gain) {
+    std::cerr << "ERROR: pixel_gain TH2D not found in "
+                 "root_files/pixel_calibration.root."
+              << std::endl;
+    file->Close();
+    delete file;
+    std::exit(1);
+  }
+  Int_t nx = (Int_t)Constants::PIXEL_CENTERS_X_MM.size();
+  Int_t ny = (Int_t)Constants::PIXEL_CENTERS_Y_MM.size();
+  if (gain->GetNbinsX() != nx || gain->GetNbinsY() != ny) {
+    std::cerr << "ERROR: pixel_gain dims " << gain->GetNbinsX() << "x"
+              << gain->GetNbinsY() << " != expected " << nx << "x" << ny
+              << std::endl;
+    file->Close();
+    delete file;
+    std::exit(1);
+  }
+  g_pixel_gain.assign(nx, std::vector<Float_t>(ny, 0.0f));
+  Int_t n_good = 0;
+  for (Int_t ix = 0; ix < nx; ix++)
+    for (Int_t iy = 0; iy < ny; iy++) {
+      Float_t v = (Float_t)gain->GetBinContent(ix + 1, iy + 1);
+      g_pixel_gain[ix][iy] = v;
+      if (v > 0)
+        n_good++;
+    }
+  file->Close();
+  delete file;
+  std::cout << "Loaded pixel gain table: " << n_good << " good / " << (nx * ny)
+            << " pixels" << std::endl;
+}
+
+static inline Float_t PixelGain(Int_t ix, Int_t iy) {
+  if (ix < 0 || iy < 0 || ix >= (Int_t)g_pixel_gain.size() ||
+      iy >= (Int_t)g_pixel_gain[0].size())
+    return 0.0f;
+  return g_pixel_gain[ix][iy];
+}
 
 Bool_t IsOnPixelCenter(Float_t pos, const std::vector<Float_t> &centers) {
   for (Int_t i = 0; i < (Int_t)centers.size(); i++) {
@@ -20,6 +74,14 @@ Bool_t IsOnPixelCenter(Float_t pos, const std::vector<Float_t> &centers) {
       return kTRUE;
   }
   return kFALSE;
+}
+
+Int_t GetPixelIndex(Float_t pos, const std::vector<Float_t> &centers) {
+  for (Int_t i = 0; i < (Int_t)centers.size(); i++) {
+    if (TMath::Abs(pos - centers[i]) <= Constants::PIXEL_ACCEPT_HALFWIDTH_MM)
+      return i;
+  }
+  return -1;
 }
 
 Int_t GetCrystalIndex(Float_t x, Float_t y) {
@@ -58,12 +120,13 @@ void FilterDemo(std::vector<TString> filenames) {
 
   for (Int_t j = 0; j < n_files; j++) {
     TString filename = filenames.at(j);
-    TString filepath = "root_files/" + filename + ".root";
-    TFile *file = new TFile(filepath, "UPDATE");
+    TFile *file =
+        IO::OpenForWriting("filtered/" + filename + ".root", "UPDATE");
     TTree *tree = static_cast<TTree *>(file->Get("bef_tree"));
 
     Float_t energy = 0;
     Float_t x = 0, y = 0, z = 0;
+    UInt_t eventTime = 0;
     Int_t liveTime = 0;
     Int_t nInteractions = 0;
     Int_t interaction = 0;
@@ -72,6 +135,7 @@ void FilterDemo(std::vector<TString> filenames) {
     tree->SetBranchAddress("xmm", &x);
     tree->SetBranchAddress("ymm", &y);
     tree->SetBranchAddress("zmm", &z);
+    tree->SetBranchAddress("eventTime", &eventTime);
     tree->SetBranchAddress("liveTime", &liveTime);
     tree->SetBranchAddress("nInteractions", &nInteractions);
     tree->SetBranchAddress("interaction", &interaction);
@@ -98,7 +162,7 @@ void FilterDemo(std::vector<TString> filenames) {
 
     if (!param) {
       std::cerr << "WARNING: Could not find N42_RealTime_Total parameter in "
-                << filepath << std::endl;
+                << filename << ".root" << std::endl;
     }
 
     TH1F *includedSpectrum =
@@ -117,9 +181,16 @@ void FilterDemo(std::vector<TString> filenames) {
 
     Bool_t in_excluded_region;
 
+    Int_t event_time_prev = -1;
+    Int_t delta_event_time = 0;
+
     for (Int_t i = 0; i < n_entries; i++) {
       tree->GetEntry(i);
       in_excluded_region = kFALSE;
+
+      Int_t crystal = GetCrystalIndex(x, y);
+      if (crystal < 0)
+        in_excluded_region = kTRUE;
 
       if (nInteractions != 1)
         in_excluded_region = kTRUE;
@@ -127,20 +198,40 @@ void FilterDemo(std::vector<TString> filenames) {
       if (z < Constants::FILTER_DEPTH_MM)
         in_excluded_region = kTRUE;
 
+      Int_t ix = GetPixelIndex(x, Constants::PIXEL_CENTERS_X_MM);
+      Int_t iy = GetPixelIndex(y, Constants::PIXEL_CENTERS_Y_MM);
+      if (ix < 0 || iy < 0)
+        in_excluded_region = kTRUE;
+
+      Float_t gain = PixelGain(ix, iy);
+      if (gain <= 0)
+        in_excluded_region = kTRUE;
+
       X->Fill(x);
 
       Float_t liveTime_us = liveTime * Constants::TENS_OF_NS_TO_S * 1e6;
-      if (liveTime_us < Constants::PILEUP_LIVETIME_THRESHOLD_US)
+      if (event_time_prev != -1)
+        delta_event_time = eventTime - event_time_prev;
+      if (liveTime_us < Constants::PILEUP_LIVETIME_THRESHOLD_US &&
+          delta_event_time == 0)
         in_excluded_region = kTRUE;
 
-      if (energy > Constants::ZOOMED_XMIN && energy < Constants::ZOOMED_XMAX) {
+      Float_t filledEnergy = (gain > 0) ? energy * gain : energy;
+
+      if (filledEnergy > Constants::ZOOMED_XMIN &&
+          filledEnergy < Constants::ZOOMED_XMAX) {
         if (z > z_min_mm)
-          EZ->Fill(energy, z);
+          EZ->Fill(filledEnergy, z);
         if (in_excluded_region) {
-          excludedSpectrum->Fill(energy);
+          excludedSpectrum->Fill(filledEnergy);
         } else
-          includedSpectrum->Fill(energy);
+          includedSpectrum->Fill(filledEnergy);
       }
+      if (i != 0) {
+        event_time_prev = eventTime;
+      } else {
+        event_time_prev = -1;
+      };
     }
 
     std::cout << "Created histograms for " << filename << std::endl;
@@ -234,8 +325,7 @@ void FilterDemo(std::vector<TString> filenames) {
 }
 
 Bool_t FilterFile(TString filename) {
-  TString filepath = "root_files/" + filename + ".root";
-  TFile *file = new TFile(filepath, "UPDATE");
+  TFile *file = IO::OpenForWriting("filtered/" + filename + ".root", "UPDATE");
   TTree *tree = static_cast<TTree *>(file->Get("bef_tree"));
 
   Float_t energy = 0;
@@ -277,6 +367,9 @@ Bool_t FilterFile(TString filename) {
     filteredTrees[c]->Branch("liveTime", &outLiveTime, "liveTime/I");
   }
 
+  Int_t event_time_prev = -1;
+  Int_t delta_event_time = 0;
+
   for (Int_t i = 0; i < n_entries; i++) {
     tree->GetEntry(i);
 
@@ -291,15 +384,25 @@ Bool_t FilterFile(TString filename) {
     if (z < Constants::FILTER_DEPTH_MM)
       continue;
 
-    if (!IsOnPixelCenter(x, Constants::PIXEL_CENTERS_X_MM) ||
-        !IsOnPixelCenter(y, Constants::PIXEL_CENTERS_Y_MM))
+    Int_t ix = GetPixelIndex(x, Constants::PIXEL_CENTERS_X_MM);
+    Int_t iy = GetPixelIndex(y, Constants::PIXEL_CENTERS_Y_MM);
+    if (ix < 0 || iy < 0)
       continue;
+
+    Float_t gain = PixelGain(ix, iy);
+    if (gain <= 0)
+      continue;
+
+    Float_t gain_matched_energy = energy * gain;
 
     Float_t liveTime_us = liveTime * Constants::TENS_OF_NS_TO_S * 1e6;
-    if (liveTime_us < Constants::PILEUP_LIVETIME_THRESHOLD_US)
+    if (event_time_prev != -1)
+      delta_event_time = eventTime - event_time_prev;
+    if (liveTime_us < Constants::PILEUP_LIVETIME_THRESHOLD_US &&
+        delta_event_time == 0)
       continue;
 
-    outEnergy = energy;
+    outEnergy = gain_matched_energy;
     outX = x;
     outY = y;
     outZ = z;
@@ -308,6 +411,12 @@ Bool_t FilterFile(TString filename) {
 
     filteredTrees[crystal]->Fill();
     filteredLiveTime_s[crystal] += liveTime * Constants::TENS_OF_NS_TO_S;
+
+    if (i != 0) {
+      event_time_prev = eventTime;
+    } else {
+      event_time_prev = -1;
+    }
   }
 
   {
@@ -359,12 +468,18 @@ void FilterEvents(std::vector<TString> filenames) {
 }
 
 void Filter() {
-  InitUtils::SetROOTPreferences(PlotSaveFormat::kPNG);
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  InitUtils::SetROOTPreferences(PlotSaveFormat::kPNG, project_root + "/plots",
+                                project_root + "/root_files");
   ROOT::EnableThreadSafety();
+
+  LoadPixelGainOrDie();
 
   std::vector<TString> filenames;
   filenames.push_back(Constants::CDSHIELDSIGNAL_10PERCENT_20260113);
   filenames.push_back(Constants::POSTREACTOR_AM241_BA133_20260116);
+  filenames.push_back(
+      Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116);
   FilterDemo(filenames);
 
   FilterEvents(Constants::ALL_DATASETS);

@@ -6,11 +6,12 @@
 #include <vector>
 
 void CalculateChargeComparison(const std::vector<TString> output_names) {
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
   Int_t n_files = output_names.size();
 
   for (Int_t entry = 0; entry < n_files; entry++) {
     TString output_name = output_names.at(entry);
-    TString filepath = "root_files/" + output_name + ".root";
+    TString filepath = project_root + "/root_files/" + output_name + ".root";
     TFile *file = new TFile(filepath, "UPDATE");
     TTree *tree = static_cast<TTree *>(file->Get("features"));
 
@@ -73,11 +74,12 @@ void CalculateChargeComparison(const std::vector<TString> output_names) {
 }
 
 void PlotChargeComparison(const std::vector<TString> output_names) {
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
   Int_t n_files = output_names.size();
 
   for (Int_t entry = 0; entry < n_files; entry++) {
     TString output_name = output_names.at(entry);
-    TString filepath = "root_files/" + output_name + ".root";
+    TString filepath = project_root + "/root_files/" + output_name + ".root";
     TFile *file = new TFile(filepath, "UPDATE");
     TTree *tree = static_cast<TTree *>(file->Get("features"));
 
@@ -120,7 +122,10 @@ void PlotChargeComparison(const std::vector<TString> output_names) {
 void ChargeComparison() {
   Bool_t recalculate_cc = kTRUE;
 
-  InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT);
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT,
+                                project_root + "/plots",
+                                project_root + "/root_files");
 
   if (recalculate_cc)
     CalculateChargeComparison(Constants::ALL_OUTPUT_NAMES);

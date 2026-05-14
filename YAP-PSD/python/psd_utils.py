@@ -1,16 +1,19 @@
 import os
 import time
+from pathlib import Path
 import ROOT
 import numpy as np
 import pandas as pd
 import pickle
 from sklearn.metrics import roc_curve, auc
 from joblib import Parallel, delayed, parallel_backend
-import analysis_utilities
+from analysis_utilities.init_utils import set_root_preferences
 
-analysis_utilities.load_cpp_library()
-ROOT.gROOT.SetBatch(True)
-ROOT.PlottingUtils.SetStylePreferences(ROOT.PlotSaveFormat.kPNG)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ROOT_FILES_DIR = str(PROJECT_ROOT / "root_files") + "/"
+
+set_root_preferences(plots_dir=PROJECT_ROOT / "plots",
+                     root_files_dir=PROJECT_ROOT / "root_files")
 
 N_JOBS = 32
 N_BOOTSTRAP = 250
@@ -503,18 +506,27 @@ def _plot_auc_vs_light_output(test_alpha_features,
 
         n_alpha = len(alpha_bin)
         n_gamma = len(gamma_bin)
-        print(
-            f"Light output bin [{lo}, {hi}) keVee: {n_alpha} alpha, {n_gamma} gamma"
-        )
+        n_balanced = min(n_alpha, n_gamma)
+        print(f"Light output bin [{lo}, {hi}) keVee: {n_alpha} alpha, "
+              f"{n_gamma} gamma  -> balanced to {n_balanced} each")
 
-        if n_alpha < 5 or n_gamma < 5:
+        if n_balanced < 5:
             for name in all_method_names:
                 auc_results[name].append(np.nan)
                 auc_errors[name].append(np.nan)
             continue
 
+        # Subsample the majority class so AUC and bootstrap uncertainties
+        # are computed on a class-balanced subset per bin.
+        if n_alpha > n_balanced:
+            alpha_bin = alpha_bin.sample(
+                n=n_balanced, random_state=42).reset_index(drop=True)
+        if n_gamma > n_balanced:
+            gamma_bin = gamma_bin.sample(
+                n=n_balanced, random_state=42).reset_index(drop=True)
+
         combined = pd.concat([alpha_bin, gamma_bin]).reset_index(drop=True)
-        y_true = np.array([0] * n_alpha + [1] * n_gamma)
+        y_true = np.array([0] * n_balanced + [1] * n_balanced)
 
         for method, name in zip(all_methods, all_method_names):
             scores = combined[method].values
@@ -569,7 +581,7 @@ def _plot_auc_vs_light_output(test_alpha_features,
             graph.GetYaxis().SetTitle("ROC AUC")
             graph.GetYaxis().SetTitleOffset(1)
             graph.GetXaxis().SetRangeUser(300, 2000)
-            graph.GetYaxis().SetRangeUser(0.3, 1.05)
+            graph.GetYaxis().SetRangeUser(0.6, 1.01)
             graph.Draw("APE")
         else:
             graph.Draw("P SAME")
@@ -778,8 +790,8 @@ def _plot_sample_waveforms(waveforms_tuple,
     text.SetTextSize(35)
 
     ROOT.PlottingUtils.SaveFigure(canvas_alpha,
-                                  f"{plot_prefix}sample_waveforms_alpha",
-                                  "", ROOT.PlotSaveOptions.kLINEAR)
+                                  f"{plot_prefix}sample_waveforms_alpha", "",
+                                  ROOT.PlotSaveOptions.kLINEAR)
     canvas_alpha.Close()
 
     canvas_gamma = ROOT.PlottingUtils.GetConfiguredCanvas()
@@ -810,8 +822,8 @@ def _plot_sample_waveforms(waveforms_tuple,
     text.SetTextSize(35)
 
     ROOT.PlottingUtils.SaveFigure(canvas_gamma,
-                                  f"{plot_prefix}sample_waveforms_gamma",
-                                  "", ROOT.PlotSaveOptions.kLINEAR)
+                                  f"{plot_prefix}sample_waveforms_gamma", "",
+                                  ROOT.PlotSaveOptions.kLINEAR)
     canvas_gamma.Close()
 
     print(f"Sample waveform plots saved: {plot_prefix}sample_waveforms_alpha, "

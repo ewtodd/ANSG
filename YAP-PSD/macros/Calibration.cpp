@@ -21,7 +21,9 @@ struct CalibrationData {
 FitResult FitSinglePeak(const TString input_name, const TString peak_name,
                         const Float_t expected_mu) {
 
-  TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  TFile *file =
+      new TFile(project_root + "/root_files/" + input_name + ".root", "READ");
   if (!file || file->IsZombie()) {
     std::cerr << "ERROR: Cannot open " << input_name << ".root" << std::endl;
     return {};
@@ -45,10 +47,12 @@ FitResult FitSinglePeak(const TString input_name, const TString peak_name,
   FitResult result;
 
   Float_t fit_low, fit_high;
+
   if (peak_name == "Am_59keV") {
     fit_low = 500;
     fit_high = 9500;
     fitter = new FittingUtils(hist, fit_low, fit_high);
+    fitter->SetInteractive(kTRUE);
   } else if (peak_name == "Na_511keV") {
     fit_low = 26000;
     fit_high = 35000;
@@ -63,7 +67,7 @@ FitResult FitSinglePeak(const TString input_name, const TString peak_name,
     fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kTRUE);
   }
 
-  result = fitter->FitPeak(input_name, peak_name);
+  result = fitter->FitSinglePeak(input_name, peak_name);
   delete hist;
   delete fitter;
   return result;
@@ -188,7 +192,8 @@ TF1 *CreateAndSaveCalibration(const CalibrationData &cal_data) {
   leg->AddEntry(linear_fit, "Linear fit (high energy)", "l");
   leg->Draw();
 
-  PlottingUtils::SaveFigure(canvas, "calibration", "", PlotSaveOptions::kLINEAR);
+  PlottingUtils::SaveFigure(canvas, "calibration", "",
+                            PlotSaveOptions::kLINEAR);
 
   delete graph_no_am;
   delete canvas;
@@ -198,8 +203,9 @@ TF1 *CreateAndSaveCalibration(const CalibrationData &cal_data) {
 void LongIntegralToLightOutput(const std::vector<TString> &input_names,
                                TF1 *calibration_function) {
 
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
   TString calibration_function_filepath =
-      "root_files/calibration_function.root";
+      project_root + "/root_files/calibration_function.root";
   TFile *calibration_file =
       new TFile(calibration_function_filepath, "RECREATE");
   calibration_function->Write("calibration", TObject::kOverwrite);
@@ -223,7 +229,8 @@ void LongIntegralToLightOutput(const std::vector<TString> &input_names,
 
     TCanvas *canvas = PlottingUtils::GetConfiguredCanvas(kFALSE);
 
-    TString output_filepath = "root_files/" + input_name + ".root";
+    TString output_filepath =
+        project_root + "/root_files/" + input_name + ".root";
     TFile *output = new TFile(output_filepath, "UPDATE");
 
     if (!output || output->IsZombie()) {
@@ -269,12 +276,11 @@ void LongIntegralToLightOutput(const std::vector<TString> &input_names,
 
     PlottingUtils::ConfigureAndDrawHistogram(light_output_hist, color);
 
-    TLatex *label =
-        PlottingUtils::AddText(subplot_labels[i], 0.82, 0.82);
+    TLatex *label = PlottingUtils::AddText(subplot_labels[i], 0.82, 0.82);
     label->SetTextSize(35);
 
-    PlottingUtils::SaveFigure(canvas, input_name + "_light_output",
-                              "", PlotSaveOptions::kLOG);
+    PlottingUtils::SaveFigure(canvas, input_name + "_light_output", "",
+                              PlotSaveOptions::kLOG);
 
     features_tree->Write("", TObject::kOverwrite);
     light_output_hist->Write("Light Output", TObject::kOverwrite);
@@ -287,7 +293,9 @@ void LongIntegralToLightOutput(const std::vector<TString> &input_names,
 
 void Calibration() {
   Bool_t recalibrate = kTRUE;
-  InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT);
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT, project_root + "/plots",
+                                project_root + "/root_files");
 
   CalibrationData cal_data = FitCalibrationPeaks();
 

@@ -58,7 +58,8 @@ struct ComputeResult {
 const OptimizationParameters OPTIMIZATION_PARAMETERS;
 
 std::vector<Event> LoadEvents(const TString &output_name) {
-  TString filepath = "root_files/" + output_name + ".root";
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  TString filepath = project_root + "/root_files/" + output_name + ".root";
   TFile *file = new TFile(filepath, "READ");
   TTree *tree = static_cast<TTree *>(file->Get("features"));
 
@@ -416,13 +417,14 @@ void PlotPSDWithFOM(TH1F *hist_alpha, TH1F *hist_gamma,
   PlottingUtils::SaveFigure(canvas, output_name + "_" + gamma_label + "",
                             "", PlotSaveOptions::kLOG);
 
-  delete fit_alpha;
-  delete fit_gamma;
   delete canvas;
 }
 
 void GateOptimization() {
-  InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT);
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT,
+                                project_root + "/plots",
+                                project_root + "/root_files");
   ROOT::EnableThreadSafety();
 
   TString alpha_output = Constants::AM241;

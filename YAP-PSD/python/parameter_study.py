@@ -1,37 +1,28 @@
+import argparse
 import os
 import pickle
 import numpy as np
 import ROOT
 import shap
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.neural_network import MLPRegressor
 from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
 from sklearn.metrics import make_scorer, roc_auc_score
 from scipy.stats import randint, uniform, loguniform
 from joblib import parallel_backend
 from xgboost import XGBRegressor
 from analysis_utilities.io import load_tree_data
-from psd_utils import process_waveforms, bootstrap_auc
+from psd_utils import process_waveforms, bootstrap_auc, ROOT_FILES_DIR
+from torch_models import TorchMLPRegressor
 import analysis_utilities
 
 analysis_utilities.load_cpp_library()
 ROOT.gROOT.SetBatch(True)
 ROOT.PlottingUtils.SetStylePreferences(ROOT.PlotSaveFormat.kPNG)
 
-ROOT_FILES_DIR = "../macros/root_files/"
 CACHE_DIR = "sweep_cache"
 
-SCALAR_BRANCHES = [
-    "pulse_height",
-    "trigger_position",
-    "long_integral",
-    "light_output",
-    "charge_comparison",
-    "raw_shape_indicator",
-    "clean_shape_indicator",
-]
-
 N_SEEDS = 3
+#SEEDS = [42, 123, 256, 789, 1024][:N_SEEDS]
 SEEDS = [42, 123, 256][:N_SEEDS]
 DEFAULT_TRAIN_PER_CLASS = 10000
 
@@ -95,7 +86,7 @@ GB_CONFIG = dict(
 MLP_CONFIG = dict(
     name="MLP",
     prefix="mlp",
-    model_class=MLPRegressor,
+    model_class=TorchMLPRegressor,
     color=ROOT.kOrange + 2,
     default_params=dict(
         hidden_layer_sizes=(128, 64),
@@ -103,6 +94,32 @@ MLP_CONFIG = dict(
     ),
     sweeps=[],
 )
+
+# Mapping from sweep prefixes to the regressor names registered in
+# regressors.py; used by --skip-randomized-search to pull tuned params from
+# the single source of truth instead of duplicating them here.
+PREFIX_TO_REGRESSOR_NAME = {"rf": "Random Forest", "xgb": "XGBoost"}
+
+
+def _best_params_from_regressors(config):
+    """Pull the tuned parameter values for this config from regressors.py.
+
+    Returns only the params that this config actually sweeps (per
+    config["sweeps"]), so the result is shape-compatible with
+    RandomizedSearchCV.best_params_.
+    """
+    from regressors import get_default_regressors
+    target = PREFIX_TO_REGRESSOR_NAME[config["prefix"]]
+    for reg in get_default_regressors():
+        if reg["name"] == target:
+            full_params = reg["model"].get_params()
+            tunable = [
+                s["param_key"] for s in config["sweeps"]
+                if s["param_key"] is not None
+            ]
+            return {k: full_params[k] for k in tunable if k in full_params}
+    raise KeyError(f"No regressor named {target!r} in get_default_regressors()")
+
 
 XGB_CONFIG = dict(
     name="XGBoost",
@@ -1058,6 +1075,17 @@ def _run_randomized_search(config, recommended, x_train, y_train, x_test,
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Hyperparameter sweeps, randomized search, and "
+        "feature-importance plots for the YAP-PSD regressors.")
+    parser.add_argument(
+        "--skip-randomized-search",
+        action="store_true",
+        help="Skip RandomizedSearchCV and use the hardcoded best params in "
+        "SKIP_SEARCH_BEST_PARAMS. Use this when re-running just to "
+        "regenerate plots after the search results are already known.")
+    args = parser.parse_args()
+
     os.makedirs("plots", exist_ok=True)
     os.makedirs(CACHE_DIR, exist_ok=True)
 
@@ -1085,8 +1113,7 @@ def main():
     else:
         print("Loading alpha data (Am-241)...")
         alpha_features, alpha_waveforms = load_tree_data(
-            ROOT_FILES_DIR + "Na22.root",
-            scalar_branches=SCALAR_BRANCHES,
+            ROOT_FILES_DIR + "Am241.root",
             array_branch="Samples",
         )
         print(
@@ -1096,7 +1123,6 @@ def main():
         print("Loading gamma data (Na-22)...")
         gamma_features, gamma_waveforms = load_tree_data(
             ROOT_FILES_DIR + "Na22.root",
-            scalar_branches=SCALAR_BRANCHES,
             array_branch="Samples",
         )
         print(
@@ -1147,9 +1173,15 @@ def main():
         optimized_params = dict(config["default_params"])
         optimized_params.update(recommended)
         print(f"{config['name']}: OAT recommended params: {recommended}")
-        print(f"RandomizedSearchCV around recommended values")
-        best_params, _ = _run_randomized_search(config, recommended, x_train,
-                                                y_train, x_test, y_test)
+        if args.skip_randomized_search:
+            best_params = _best_params_from_regressors(config)
+            print(f"Skipping randomized search; using params from "
+                  f"regressors.py: {best_params}")
+        else:
+            print(f"RandomizedSearchCV around recommended values")
+            best_params, _ = _run_randomized_search(config, recommended,
+                                                    x_train, y_train, x_test,
+                                                    y_test)
         # Use the better params (from randomized search) for feature importance
         final_params = dict(config["default_params"])
         final_params.update(best_params)

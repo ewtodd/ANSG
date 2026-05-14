@@ -1,6 +1,7 @@
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.neural_network import MLPRegressor
 from xgboost import XGBRegressor
+
+from torch_models import TorchMLPRegressor
 
 
 def get_default_regressors(random_state=42):
@@ -61,7 +62,7 @@ def get_default_regressors(random_state=42):
             "name":
             "MLP",
             "model":
-            MLPRegressor(
+            TorchMLPRegressor(
                 hidden_layer_sizes=(128, 64),
                 max_iter=500,
                 random_state=random_state,

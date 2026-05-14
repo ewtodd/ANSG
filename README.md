@@ -1,17 +1,11 @@
-# Public Analysis Repository for Physics Work
+# ANSG (Applied Nuclear Science Group) Analysis
 <!---->
 ## Projects
 <!---->
-### ANSG (Applied Nuclear Science Group)
-<!---->
 - **73mGe** — Precision gamma-ray measurements of 73mGe using a state-of-the-art position sensitive CZT detector.
 - **78mBr** — Half-life measurement of 78mBr by self-coincidence analysis in a LaBr3 detector.
+- **YAG-PreProcessing** — Pre-processing of YAG detector data.
 - **YAP-PSD** — Machine learning-based pulse shape discrimination in YAP:Ce, comparing Random Forest, Gradient Boosting, XGBoost, and MLP models.
-<!---->
-### MUSIC (Multi-Sampling Ionization Chamber at Argonne National Lab)
-<!---->
-- **ProductionMode_37Cl** — Event building and timing analysis for the MUSIC detector array, including binary data conversion, multi-board timing synchronization, and event reconstruction.
-- **SiCalibration_37Cl** — Silicon diode energy loss measurement used for validating the stopping power tables for 37Cl in helium gas.
 <!---->
 ## Dependencies
 <!---->

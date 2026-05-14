@@ -5,7 +5,7 @@
     flake-utils.url = "github:numtide/flake-utils";
     utils = {
       inputs.nixpkgs.follows = "nixpkgs";
-      url = "github:ewtodd/Analysis-Utilities";
+      url = "/home/e-work/Analysis-Utilities";
     };
   };
   outputs =
@@ -18,7 +18,14 @@
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = import nixpkgs {
+          inherit system;
+          config = {
+            allowUnfree = true;
+            cudaCapabilities = [ "12.0" ];
+            cudaForwardCompat = false;
+          };
+        };
         analysis-utils = utils.packages.${system}.default;
         analysis-utils-py = utils.packages.${system}.pythonPackage;
       in
@@ -41,6 +48,7 @@
                 xgboost
                 shap
                 packaging
+                torch-bin
                 analysis-utils-py
               ]
             ))
@@ -51,6 +59,7 @@
             export CPLUS_INCLUDE_PATH="$PWD/include''${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}"
             export ROOT_INCLUDE_PATH="$PWD/include''${ROOT_INCLUDE_PATH:+:$ROOT_INCLUDE_PATH}"
             export LD_LIBRARY_PATH="$PWD/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            alias clean-aclic='rm -f *_C.so *_C.d *_C_ACLiC_dict_rdict.pcm *_cpp.so *_cpp.d *_cpp_ACLiC_dict_rdict.pcm *_cxx.so *_cxx.d *_cxx_ACLiC_dict_rdict.pcm AutoDict_*'
           '';
         };
       }

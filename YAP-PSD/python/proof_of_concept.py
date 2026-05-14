@@ -4,7 +4,8 @@ import pickle
 import ROOT
 from analysis_utilities.io import load_tree_data
 import pandas as pd
-from psd_utils import (process_waveforms, column_name, ANALYSIS_CACHE_DIR)
+from psd_utils import (process_waveforms, column_name, ANALYSIS_CACHE_DIR,
+                       ROOT_FILES_DIR)
 from regressors import get_default_regressors
 
 import analysis_utilities
@@ -14,24 +15,12 @@ analysis_utilities.load_cpp_library()
 ROOT.gROOT.SetBatch(True)
 ROOT.PlottingUtils.SetStylePreferences(ROOT.PlotSaveFormat.kPNG)
 
-ROOT_FILES_DIR = "../macros/root_files/"
-
-SCALAR_BRANCHES = [
-    "pulse_height",
-    "trigger_position",
-    "long_integral",
-    "light_output",
-    "charge_comparison",
-    "raw_shape_indicator",
-    "clean_shape_indicator",
-]
-
 SOURCE_MAP = {
     "Am-241 & Cs-137": "Am241Cs137.root",
     "Am-241 & Co-60": "Am241Co60.root",
 }
 
-TRUE_POSITIVE_RATE = 99
+TARGET_EFFICIENCY = 0.90
 
 
 def _clean_name(source_name):
@@ -67,7 +56,8 @@ def _classify_events(scores, alpha_threshold, gamma_threshold):
 
 
 def _plot_classified_spectra(features, source_name, method_name, alpha_mask,
-                             gamma_mask, alpha_thresh, gamma_thresh):
+                             gamma_mask, alpha_thresh, gamma_thresh,
+                             cal_tpr=None):
     """Plot light-output spectra classified by thresholds."""
     all_lo = features["light_output"].values
     alpha_like_lo = all_lo[alpha_mask]
@@ -85,7 +75,7 @@ def _plot_classified_spectra(features, source_name, method_name, alpha_mask,
     pad_leg = ROOT.TPad("pad_leg", "", 0.7, 0.0, 1.0, 1.0)
     pad_plot.SetLogy()
     pad_plot.SetLeftMargin(0.12)
-    pad_plot.SetRightMargin(0.02)
+    pad_plot.SetRightMargin(0.05)
     pad_leg.SetLeftMargin(0.0)
     pad_leg.SetRightMargin(0.05)
     pad_plot.Draw()
@@ -136,14 +126,16 @@ def _plot_classified_spectra(features, source_name, method_name, alpha_mask,
     leg.AddEntry(h_alpha, f"#alpha-like (< {effective_alpha:.3f})", "f")
     leg.AddEntry(h_gamma, f"#gamma-like (> {effective_gamma:.3f})", "f")
     leg.AddEntry(ROOT.nullptr, f"Efficiency: {efficiency:.1f}%", "")
+    if cal_tpr is not None:
+        leg.AddEntry(ROOT.nullptr, f"Cal. TPR: {cal_tpr:.2f}%", "")
     leg.Draw()
 
     safe_reg = method_name.replace(" ", "_").lower()
     safe_src = _clean_name(source_name)
     output_path = f"classified_spectra_{safe_src}_{safe_reg}"
     canvas.cd()
-    ROOT.PlottingUtils.SaveFigure(canvas, output_path,
-                                  "", ROOT.PlotSaveOptions.kLOG)
+    ROOT.PlottingUtils.SaveFigure(canvas, output_path, "",
+                                  ROOT.PlotSaveOptions.kLOG)
     canvas.Close()
     h_all.Delete()
     h_alpha.Delete()
@@ -168,6 +160,33 @@ def _find_crossover_tpr(am_cal_scores, na_cal_scores):
         if alpha_upper >= gamma_lower:
             return tpr
     return tpr_scan[-1]
+
+
+def _calibration_tpr_for_efficiency(am_cal_scores, na_cal_scores,
+                                    mixed_scores, target_efficiency=0.9):
+    """Find the calibration TPR (defined on pure sources) at which a single
+    mixed source's classification efficiency hits ``target_efficiency``.
+
+    Efficiency vs TPR is unimodal: it rises as the dead-zone shrinks below
+    the threshold-crossover, peaks at 100% at the crossover, then drops as
+    the overlap zone widens past it. We want the *largest* TPR on the
+    descending side that still meets the target -- the operating point that
+    keeps the chosen fraction of events while making the thresholds as
+    selective as possible.
+
+    Walks TPR down from the top and returns the first value where the
+    target is met (i.e., the highest qualifying TPR).
+
+    Returns (tpr, achieved_efficiency) or ``None`` if no TPR qualifies.
+    """
+    tpr_scan = np.linspace(99.999, 100 * target_efficiency, 10000)
+    for tpr in tpr_scan:
+        a_thr, g_thr = _determine_thresholds(am_cal_scores, na_cal_scores, tpr)
+        a_mask, g_mask = _classify_events(mixed_scores, a_thr, g_thr)
+        eff = float(a_mask.sum() + g_mask.sum()) / len(mixed_scores)
+        if eff >= target_efficiency:
+            return float(tpr), eff
+    return None
 
 
 def _plot_efficiency_vs_strictness(method_names, source_scores, am_cal_feat,
@@ -271,15 +290,23 @@ def _plot_efficiency_vs_strictness(method_names, source_scores, am_cal_feat,
 
         safe_src = _clean_name(source_name)
         output_name = f"efficiency_vs_strictness_{safe_src}"
-        ROOT.PlottingUtils.SaveFigure(canvas, output_name,
-                                      "", ROOT.PlotSaveOptions.kLINEAR)
+        ROOT.PlottingUtils.SaveFigure(canvas, output_name, "",
+                                      ROOT.PlotSaveOptions.kLINEAR)
         canvas.Close()
 
         print(f"Efficiency vs strictness plot saved for {source_name}")
 
 
-def _save_efficiency_table(records, method_names, source_names, tpr):
-    """Save classification efficiency at maximum strictness to a LaTeX table."""
+def _save_efficiency_table(records, method_names, source_names,
+                           target_efficiency):
+    """Save calibration TPR per (method, source) to a LaTeX table.
+
+    Thresholds are chosen so each cell's classification efficiency hits
+    target_efficiency (~ a constant 90%), so the interesting per-cell
+    quantity is the calibration TPR -- the operating point on the
+    pure-source ROC curve.
+    """
+    tpr_by = {(r["source"], r["method"]): r["cal_tpr"] for r in records}
     eff_by = {(r["source"], r["method"]): r["efficiency"] for r in records}
 
     n_sources = len(source_names)
@@ -289,9 +316,13 @@ def _save_efficiency_table(records, method_names, source_names, tpr):
     lines = []
     lines.append(r"\begin{table}[htbp]")
     lines.append(r"  \centering")
-    lines.append(r"  \caption{Classification efficiency [\%] at "
-                 f"{tpr}\\% TPR."
-                 r"}")
+    lines.append(r"  \caption{Calibration TPR [\%] required to achieve "
+                 f"{target_efficiency * 100:.0f}\\% classification "
+                 r"efficiency on each mixed source. Cells show "
+                 r"Cal. TPR / achieved efficiency [\%]. Higher Cal. TPR "
+                 r"indicates a method that maintains the target efficiency "
+                 r"with a more selective operating point on the pure-source "
+                 r"ROC curve.}")
     lines.append(r"  \label{tab:efficiency}")
     lines.append(f"  \\begin{{tabular}}{{{col_spec}}}")
     lines.append(r"    \toprule")
@@ -299,8 +330,14 @@ def _save_efficiency_table(records, method_names, source_names, tpr):
     lines.append(header)
     lines.append(r"    \midrule")
     for name in method_names:
-        vals = [f"{eff_by[(src, name)]:.1f}" for src in source_names]
-        lines.append(f"    {name} & " + " & ".join(vals) + r" \\")
+        cells = []
+        for src in source_names:
+            if (src, name) in tpr_by:
+                cells.append(f"{tpr_by[(src, name)]:.2f} / "
+                             f"{eff_by[(src, name)]:.1f}")
+            else:
+                cells.append("--")
+        lines.append(f"    {name} & " + " & ".join(cells) + r" \\")
     lines.append(r"    \bottomrule")
     lines.append(r"  \end{tabular}")
     lines.append(r"\end{table}")
@@ -357,18 +394,6 @@ def main():
     print(f"Am-241 calibration events: {len(am_cal_feat)}")
     print(f"Na-22  calibration events: {len(na_cal_feat)}")
 
-    print(f"Determining thresholds at {TRUE_POSITIVE_RATE}% TPR...")
-    thresholds = {}
-    for name in models:
-        col = column_name(name)
-        am_scores = am_cal_feat[col].values
-        na_scores = na_cal_feat[col].values
-        alpha_thresh, gamma_thresh = _determine_thresholds(
-            am_scores, na_scores, TRUE_POSITIVE_RATE)
-        thresholds[name] = (alpha_thresh, gamma_thresh)
-        print(f"  {name}: alpha <= {alpha_thresh:.4f}, "
-              f"gamma >= {gamma_thresh:.4f}")
-
     source_scores = {}
     source_features = {}
 
@@ -380,7 +405,6 @@ def main():
             continue
 
         features, waveforms = load_tree_data(source_path,
-                                             scalar_branches=SCALAR_BRANCHES,
                                              array_branch="Samples",
                                              max_events=int(5e6))
 
@@ -398,6 +422,35 @@ def main():
         source_scores[source_name] = scores
         source_features[source_name] = features
 
+    # Per-(source, method) calibration TPR chosen so the mixed-source's
+    # classification efficiency hits TARGET_EFFICIENCY. Each combination gets
+    # its own threshold pair derived from this TPR.
+    print(f"Calibration TPR per (method, source) for "
+          f"{TARGET_EFFICIENCY * 100:.0f}% efficiency:")
+    thresholds = {}  # thresholds[source_name][method_name] = (a_thr, g_thr)
+    cal_tprs = {}    # cal_tprs[source_name][method_name] = tpr
+    for source_name in source_scores:
+        thresholds[source_name] = {}
+        cal_tprs[source_name] = {}
+        for name in method_names:
+            col = column_name(name)
+            am_scores = am_cal_feat[col].values
+            na_scores = na_cal_feat[col].values
+            mix_scores = source_scores[source_name][name]
+            result = _calibration_tpr_for_efficiency(am_scores, na_scores,
+                                                     mix_scores,
+                                                     TARGET_EFFICIENCY)
+            if result is None:
+                print(f"  [{source_name}] {name}: no TPR satisfies the "
+                      f"target")
+                continue
+            tpr, _eff = result
+            a_thr, g_thr = _determine_thresholds(am_scores, na_scores, tpr)
+            thresholds[source_name][name] = (a_thr, g_thr)
+            cal_tprs[source_name][name] = tpr
+            print(f"  [{source_name}] {name}: Cal. TPR = {tpr:.3f}%  "
+                  f"alpha <= {a_thr:.4f}, gamma >= {g_thr:.4f}")
+
     _plot_efficiency_vs_strictness(method_names, source_scores, am_cal_feat,
                                    na_cal_feat)
 
@@ -406,23 +459,29 @@ def main():
         print(f"Classifying: {source_name}")
         features = source_features[source_name]
         for name in method_names:
+            if name not in thresholds[source_name]:
+                continue
             scores = source_scores[source_name][name]
-            alpha_thresh, gamma_thresh = thresholds[name]
+            alpha_thresh, gamma_thresh = thresholds[source_name][name]
             alpha_mask, gamma_mask = _classify_events(scores, alpha_thresh,
                                                       gamma_thresh)
             n_classified = np.sum(alpha_mask) + np.sum(gamma_mask)
             efficiency = n_classified / len(scores) * 100
-            print(f"  [{name}] efficiency: {efficiency:.1f}%")
+            cal_tpr = cal_tprs[source_name][name]
+            print(f"  [{name}] efficiency: {efficiency:.1f}%  "
+                  f"(Cal. TPR = {cal_tpr:.3f}%)")
             efficiency_records.append({
                 "source": source_name,
                 "method": name,
                 "efficiency": efficiency,
+                "cal_tpr": cal_tpr,
             })
             _plot_classified_spectra(features, source_name, name, alpha_mask,
-                                     gamma_mask, alpha_thresh, gamma_thresh)
+                                     gamma_mask, alpha_thresh, gamma_thresh,
+                                     cal_tpr)
 
     _save_efficiency_table(efficiency_records, method_names,
-                           list(source_scores.keys()), TRUE_POSITIVE_RATE)
+                           list(source_scores.keys()), TARGET_EFFICIENCY)
 
     print(f"\nComplete. Analyzed {len(source_scores)} sources "
           f"with {len(method_names)} methods.")

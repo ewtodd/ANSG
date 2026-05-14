@@ -1,7 +1,7 @@
 import numpy as np
 import os
 from analysis_utilities.io import load_tree_data
-from psd_utils import regress_waveforms, process_waveforms
+from psd_utils import regress_waveforms, process_waveforms, ROOT_FILES_DIR
 from regressors import get_default_regressors
 import analysis_utilities
 
@@ -11,18 +11,7 @@ import ROOT
 ROOT.gROOT.SetBatch(True)
 ROOT.PlottingUtils.SetStylePreferences(ROOT.PlotSaveFormat.kPNG)
 
-ROOT_FILES_DIR = "../macros/root_files/"
 EDGE_STUDY_CACHE_DIR = "edge_study_cache"
-
-SCALAR_BRANCHES = [
-    "pulse_height",
-    "trigger_position",
-    "long_integral",
-    "light_output",
-    "charge_comparison",
-    "raw_shape_indicator",
-    "clean_shape_indicator",
-]
 
 SWEEP_CACHE_DIR = "sweep_cache"
 
@@ -96,7 +85,6 @@ def main():
         print("Loading alpha data (Am-241)...")
         alpha_features, alpha_waveforms = load_tree_data(
             ROOT_FILES_DIR + "Am241.root",
-            scalar_branches=SCALAR_BRANCHES,
             array_branch="Samples",
         )
         print(f"Alpha events: {len(alpha_features)}, "
@@ -105,7 +93,6 @@ def main():
         print("Loading gamma data (Na-22)...")
         gamma_features, gamma_waveforms = load_tree_data(
             ROOT_FILES_DIR + "Na22.root",
-            scalar_branches=SCALAR_BRANCHES,
             array_branch="Samples",
         )
         print(f"Gamma events: {len(gamma_features)}, "

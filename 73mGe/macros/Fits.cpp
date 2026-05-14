@@ -1,7 +1,8 @@
 #include "Constants.hpp"
-#include "FittingUtils.hpp"
+#include "IOUtils.hpp"
 #include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
+#include "RooFitUtils.hpp"
 #include <TF1.h>
 #include <TFitResult.h>
 #include <TGraphErrors.h>
@@ -10,241 +11,119 @@
 #include <iomanip>
 #include <vector>
 
-const Float_t E_AM241 = 59.5409;
-const Float_t E_BA133_53 = 53.16;
-const Float_t E_BA133_81 = 80.9979;
 const Float_t E_PB_KA1 = 72.8042;
 const Float_t E_PB_KA2 = 74.9694;
-const Float_t E_CD114M = 95.9023;
+const Float_t E_GE_73M = 68.752;
+const Float_t E_BKG_73KEV = 73.0;
 
-TH1F *LoadHistogram(const TString input_name) {
-  TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
+std::vector<Double_t> LoadEvents(const TString input_name) {
+  std::vector<Double_t> events;
+  TFile *file = IO::OpenForReading("calibrated/" + input_name + ".root");
   if (!file || file->IsZombie()) {
-    std::cerr << "ERROR: Cannot open " << input_name << ".root" << std::endl;
-    return nullptr;
-  }
-
-  TH1F *hist = static_cast<TH1F *>(file->Get("calibrated_zoomedHist"));
-  if (!hist) {
-    std::cerr << "ERROR: Cannot find calibrated_zoomedHist in " << input_name
+    std::cerr << "ERROR: Cannot open calibrated/" << input_name << ".root"
               << std::endl;
+    return events;
+  }
+  TTree *tree = static_cast<TTree *>(file->Get("calibrated_tree"));
+  if (!tree) {
+    std::cerr << "ERROR: Cannot find calibrated_tree in calibrated/"
+              << input_name << ".root" << std::endl;
     file->Close();
     delete file;
-    return nullptr;
+    return events;
   }
-  hist->SetDirectory(0);
+  events = RooFitUtils::LoadEventsFromTree(tree, "depositedEnergykeV");
   file->Close();
   delete file;
-  return hist;
+  return events;
 }
 
-FitResult FitCalibrationPeak(const TString input_name, const TString peak_name,
-                             const Bool_t interactive) {
-  TH1F *hist = LoadHistogram(input_name);
-  if (!hist)
-    return {};
+struct BkgGeSimResult {
+  FitResult bkg_channel;
+  FitResult sig_channel;
+  Bool_t valid;
+};
 
-  Bool_t use_flat_background = kTRUE;
+BkgGeSimResult FitBkgGeSimultaneous(
+    const TString bkg_input, const TString sig_input, const Float_t bkg_lo,
+    const Float_t bkg_hi, const Float_t sig_lo, const Float_t sig_hi,
+    const std::vector<Double_t> &bkg_peak_mus, const Double_t ge_mu_init,
+    const Bool_t bkg_flat, const Bool_t sig_flat, const Bool_t interactive) {
+  BkgGeSimResult out;
+  out.valid = kFALSE;
+
+  Int_t n_bkg_peaks = (Int_t)bkg_peak_mus.size();
+  if (n_bkg_peaks < 1 || n_bkg_peaks > 2) {
+    std::cerr << "ERROR: bkg_peak_mus must have 1 or 2 entries" << std::endl;
+    return out;
+  }
+
+  std::vector<Double_t> bkg_events = LoadEvents(bkg_input);
+  std::vector<Double_t> sig_events = LoadEvents(sig_input);
+  if (bkg_events.empty() || sig_events.empty())
+    return out;
+
   Bool_t use_step = kFALSE;
-  Bool_t use_low_exp_tail = kTRUE;
-  Bool_t use_low_lin_tail = kTRUE;
-  Bool_t use_high_exp_tail = kTRUE;
+  Bool_t use_low_exp = kTRUE;
+  Bool_t use_low_lin = kTRUE;
+  Bool_t use_high_exp = kTRUE;
 
-  FittingUtils *fitter = nullptr;
-
-  if (peak_name == "Am_59.5keV") {
-    if (input_name == Constants::POSTREACTOR_AM241_20260113)
-      fitter = new FittingUtils(hist, 50, 70, use_flat_background, use_step,
-                                use_low_exp_tail, use_low_lin_tail,
-                                use_high_exp_tail);
-    else if (input_name == Constants::POSTREACTOR_AM241_BA133_20260116)
-      fitter = new FittingUtils(hist, 55, 70, use_flat_background, use_step,
-                                use_low_exp_tail, use_low_lin_tail,
-                                use_high_exp_tail);
-    else
-      fitter = new FittingUtils(hist, 51, 71, use_flat_background, use_step,
-                                use_low_exp_tail, use_low_lin_tail,
-                                use_high_exp_tail);
-  }
-  if (peak_name == "Ba_80.98keV") {
-    fitter =
-        new FittingUtils(hist, 75, 90, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  }
-  if (peak_name == "Cd114m_95.9keV") {
-    if (input_name == Constants::NOSHIELDBACKGROUND_5PERCENT_20260115)
-      fitter = new FittingUtils(hist, 91, 100, use_flat_background, use_step,
-                                use_low_exp_tail, use_low_lin_tail,
-                                use_high_exp_tail);
-    else
-      fitter = new FittingUtils(hist, 91, 103, use_flat_background, use_step,
-                                use_low_exp_tail, use_low_lin_tail,
-                                use_high_exp_tail);
-  }
-
+  RooFitUtils bkg_fitter(bkg_events, bkg_lo, bkg_hi, Constants::BIN_WIDTH_KEV,
+                          bkg_flat, use_step, use_low_exp, use_low_lin,
+                          use_high_exp);
   if (interactive)
-    fitter->SetInteractive();
-  FitResult result = fitter->FitSinglePeak(input_name, peak_name);
-  delete hist;
-  delete fitter;
-  return result;
-}
+    bkg_fitter.SetInteractive();
 
-FitResult FitBackgroundPeak(const TString input_name,
-                            const Bool_t interactive) {
-  TH1F *hist = LoadHistogram(input_name);
-  if (!hist)
-    return {};
-
-  Bool_t use_flat_background = kTRUE;
-  Bool_t use_step = kFALSE;
-  Bool_t use_low_exp_tail = kTRUE;
-  Bool_t use_low_lin_tail = kTRUE;
-  Bool_t use_high_exp_tail = kTRUE;
-
-  FittingUtils *fitter = nullptr;
-
-  if (input_name == Constants::NOSHIELDBACKGROUND_5PERCENT_20260115)
-    fitter =
-        new FittingUtils(hist, 67, 77, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name ==
-           Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116)
-    fitter =
-        new FittingUtils(hist, 67, 80, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-
-  if (interactive)
-    fitter->SetInteractive();
-  FitResult result = fitter->FitSinglePeak(input_name, "Background");
-  delete hist;
-  delete fitter;
-  return result;
-}
-
-FitResult FitPbKAlpha(const TString input_name, const Bool_t interactive) {
-  TH1F *hist = LoadHistogram(input_name);
-  if (!hist)
-    return {};
-
-  Bool_t use_flat_background = kTRUE;
-  Bool_t use_step = kFALSE;
-  Bool_t use_low_exp_tail = kTRUE;
-  Bool_t use_low_lin_tail = kTRUE;
-  Bool_t use_high_exp_tail = kTRUE;
-
-  FittingUtils *fitter = nullptr;
-
-  if (input_name == Constants::CDSHIELDBACKGROUND_25PERCENT_20260113)
-    fitter =
-        new FittingUtils(hist, 66, 81, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_20260114)
-    fitter =
-        new FittingUtils(hist, 66, 82, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_20260113) {
-    use_flat_background = kFALSE;
-    fitter =
-        new FittingUtils(hist, 65, 82, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
+  FitResult seed;
+  TString seed_label = "BkgSeed";
+  if (n_bkg_peaks == 1) {
+    seed = bkg_fitter.FitSinglePeak(bkg_input, seed_label);
   } else {
-    use_flat_background = kFALSE;
-    fitter =
-        new FittingUtils(hist, 65, 81, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
+    seed = bkg_fitter.FitDoublePeak(bkg_input, seed_label, bkg_peak_mus[0],
+                                      bkg_peak_mus[1]);
   }
 
+  if (!seed.valid) {
+    std::cerr << "ERROR: bkg-only seed fit failed for " << bkg_input
+              << std::endl;
+    return out;
+  }
+
+  RooFitUtils sim;
   if (interactive)
-    fitter->SetInteractive();
-  FitResult result =
-      fitter->FitDoublePeak(input_name, "Pb_KAlpha", E_PB_KA1, E_PB_KA2);
-  delete hist;
-  delete fitter;
-  return result;
-}
+    sim.SetInteractive();
 
-FitResult FitSignalDoublePeak(const TString input_name,
-                              const PeakFitResult &constrained_peak,
-                              const Bool_t interactive) {
-  TH1F *hist = LoadHistogram(input_name);
-  if (!hist)
-    return {};
+  std::vector<Double_t> sig_mus = bkg_peak_mus;
+  sig_mus.push_back(ge_mu_init);
 
-  Bool_t use_flat_background = kTRUE;
-  Bool_t use_step = kFALSE;
-  Bool_t use_low_exp_tail = kTRUE;
-  Bool_t use_low_lin_tail = kTRUE;
-  Bool_t use_high_exp_tail = kTRUE;
+  sim.AddChannel("bkg", bkg_events, bkg_lo, bkg_hi, Constants::BIN_WIDTH_KEV,
+                  n_bkg_peaks, bkg_peak_mus, bkg_flat, use_step, use_low_exp,
+                  use_low_lin, use_high_exp);
+  sim.AddChannel("sig", sig_events, sig_lo, sig_hi, Constants::BIN_WIDTH_KEV,
+                  n_bkg_peaks + 1, sig_mus, sig_flat, use_step, use_low_exp,
+                  use_low_lin, use_high_exp);
 
-  FittingUtils *fitter = nullptr;
+  for (Int_t i = 0; i < n_bkg_peaks; i++) {
+    sim.LinkPeakShape("sig", i, "bkg", i);
+  }
+  sim.SeedChannel("bkg", seed);
 
-  if (input_name == Constants::NOSHIELDSIGNAL_5PERCENT_20260115)
-    fitter =
-        new FittingUtils(hist, 64, 77, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name ==
-           Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116)
-    fitter =
-        new FittingUtils(hist, 60, 77, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
+  std::vector<FitResult> results = sim.FitSimultaneous(sig_input, "BkgGe_sim");
 
-  if (interactive)
-    fitter->SetInteractive();
-  FitResult result =
-      fitter->FitDoublePeak(input_name, "Ge", constrained_peak, 68.75);
-  delete hist;
-  delete fitter;
-  return result;
-}
+  if (results.size() < 2)
+    return out;
 
-FitResult FitSignalTriplePeak(const TString input_name,
-                              const FitResult &constrained_peaks,
-                              const Bool_t interactive) {
-  TH1F *hist = LoadHistogram(input_name);
-  if (!hist)
-    return {};
-
-  Bool_t use_flat_background = kTRUE;
-  Bool_t use_step = kFALSE;
-  Bool_t use_low_exp_tail = kTRUE;
-  Bool_t use_low_lin_tail = kTRUE;
-  Bool_t use_high_exp_tail = kTRUE;
-
-  FittingUtils *fitter = nullptr;
-
-  if (input_name == Constants::CDSHIELDSIGNAL_25PERCENT_20260113)
-    fitter =
-        new FittingUtils(hist, 65, 81, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name == Constants::CDSHIELDSIGNAL_10PERCENT_20260113)
-    fitter =
-        new FittingUtils(hist, 64, 80, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name == Constants::CUSHIELDSIGNAL_10PERCENT_20260114)
-    fitter =
-        new FittingUtils(hist, 62, 80, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name == Constants::CUSHIELDSIGNAL_90PERCENT_20260114)
-    fitter =
-        new FittingUtils(hist, 63, 80, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else
-    fitter =
-        new FittingUtils(hist, 65, 81, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-
-  if (interactive)
-    fitter->SetInteractive();
-  FitResult result =
-      fitter->FitTriplePeak(input_name, "Ge", constrained_peaks, 68.75);
-  delete hist;
-  delete fitter;
-  return result;
+  out.bkg_channel = results[0];
+  out.sig_channel = results[1];
+  out.valid = results[1].valid;
+  return out;
 }
 
 void Fits() {
-  InitUtils::SetROOTPreferences(PlotSaveFormat::kPNG);
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  InitUtils::SetROOTPreferences(PlotSaveFormat::kPNG,
+                                project_root + "/plots/raw",
+                                project_root + "/root_files");
 
   Bool_t interactive = kTRUE;
 
@@ -253,51 +132,56 @@ void Fits() {
   std::vector<Float_t> mu_errors;
   std::vector<Float_t> reduced_chi2;
 
-  // Pb K-alpha backgrounds (used as constraints for signal fits)
+  std::vector<Double_t> pb_mus = {(Double_t)E_PB_KA1, (Double_t)E_PB_KA2};
+  std::vector<Double_t> one_bkg_mus = {(Double_t)E_BKG_73KEV};
 
-  FitResult cd_bkg_10 = FitPbKAlpha(
-      Constants::CDSHIELDBACKGROUND_10PERCENT_20260113, interactive);
-  FitResult cd_bkg_25 = FitPbKAlpha(
-      Constants::CDSHIELDBACKGROUND_25PERCENT_20260113, interactive);
-  FitResult cu_bkg_0113 = FitPbKAlpha(
-      Constants::CUSHIELDBACKGROUND_10PERCENT_20260113, interactive);
-  FitResult cu_bkg_0114 = FitPbKAlpha(
-      Constants::CUSHIELDBACKGROUND_10PERCENT_20260114, interactive);
+  BkgGeSimResult cd_10 = FitBkgGeSimultaneous(
+      Constants::CDSHIELDBACKGROUND_10PERCENT_20260113,
+      Constants::CDSHIELDSIGNAL_10PERCENT_20260113, 65, 81, 64, 80, pb_mus,
+      E_GE_73M, kTRUE, kTRUE, interactive);
+  BkgGeSimResult cd_25 = FitBkgGeSimultaneous(
+      Constants::CDSHIELDBACKGROUND_25PERCENT_20260113,
+      Constants::CDSHIELDSIGNAL_25PERCENT_20260113, 66, 81, 65, 81, pb_mus,
+      E_GE_73M, kTRUE, kTRUE, interactive);
+  BkgGeSimResult cu_0113 = FitBkgGeSimultaneous(
+      Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,
+      Constants::CUSHIELDSIGNAL_10PERCENT_20260113, 65, 82, 62, 80, pb_mus,
+      E_GE_73M, kFALSE, kTRUE, interactive);
+  BkgGeSimResult cu_0114 = FitBkgGeSimultaneous(
+      Constants::CUSHIELDBACKGROUND_10PERCENT_20260114,
+      Constants::CUSHIELDSIGNAL_10PERCENT_20260114, 66, 82, 63, 80, pb_mus,
+      E_GE_73M, kTRUE, kTRUE, interactive);
 
-  // Triple peak signal fits (Ge peak + constrained Pb K-alpha)
+  BkgGeSimResult noshield_15 = FitBkgGeSimultaneous(
+      Constants::NOSHIELDBACKGROUND_5PERCENT_20260115,
+      Constants::NOSHIELDSIGNAL_5PERCENT_20260115, 67, 77, 64, 77, one_bkg_mus,
+      E_GE_73M, kTRUE, kTRUE, interactive);
+  BkgGeSimResult graphite_16 = FitBkgGeSimultaneous(
+      Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116,
+      Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116, 67, 80, 60,
+      77, one_bkg_mus, E_GE_73M, kTRUE, kTRUE, interactive);
 
-  FitResult cd_sig_10 = FitSignalTriplePeak(
-      Constants::CDSHIELDSIGNAL_10PERCENT_20260113, cd_bkg_10, interactive);
-  FitResult cd_sig_25 = FitSignalTriplePeak(
-      Constants::CDSHIELDSIGNAL_25PERCENT_20260113, cd_bkg_25, interactive);
-  FitResult cu_sig_0113 = FitSignalTriplePeak(
-      Constants::CUSHIELDSIGNAL_10PERCENT_20260113, cu_bkg_0113, interactive);
-  FitResult cu_sig_0114 = FitSignalTriplePeak(
-      Constants::CUSHIELDSIGNAL_10PERCENT_20260114, cu_bkg_0114, interactive);
+  BkgGeSimResult pairs[6] = {cd_10, cd_25, cu_0113,
+                               cu_0114, noshield_15, graphite_16};
+  TString labels[6] = {"Cd Shield Signal 10% (01/13)",
+                        "Cd Shield Signal 25% (01/13)",
+                        "Cu Shield Signal 10% (01/13)",
+                        "Cu Shield Signal 10% (01/14)",
+                        "No Shield Signal 5% (01/15)",
+                        "No Shield Graphite Castle Signal 10% (01/16)"};
 
-  run_names.push_back("Cd Shield Signal 10% (01/13)");
-  mu.push_back(cd_sig_10.peaks.at(0).mu);
-  mu_errors.push_back(cd_sig_10.peaks.at(0).mu_error);
-  reduced_chi2.push_back(cd_sig_10.reduced_chi2);
-
-  run_names.push_back("Cd Shield Signal 25% (01/13)");
-  mu.push_back(cd_sig_25.peaks.at(0).mu);
-  mu_errors.push_back(cd_sig_25.peaks.at(0).mu_error);
-  reduced_chi2.push_back(cd_sig_25.reduced_chi2);
-
-  run_names.push_back("Cu Shield Signal 10% (01/13)");
-  mu.push_back(cu_sig_0113.peaks.at(0).mu);
-  mu_errors.push_back(cu_sig_0113.peaks.at(0).mu_error);
-  reduced_chi2.push_back(cu_sig_0113.reduced_chi2);
-
-  run_names.push_back("Cu Shield Signal 10% (01/14)");
-  mu.push_back(cu_sig_0114.peaks.at(0).mu);
-  mu_errors.push_back(cu_sig_0114.peaks.at(0).mu_error);
-  reduced_chi2.push_back(cu_sig_0114.reduced_chi2);
+  for (Int_t i = 0; i < 6; i++) {
+    if (!pairs[i].valid)
+      continue;
+    const PeakFitResult &ge = pairs[i].sig_channel.peaks.back();
+    run_names.push_back(labels[i]);
+    mu.push_back(ge.mu);
+    mu_errors.push_back(ge.mu_error);
+    reduced_chi2.push_back(pairs[i].sig_channel.reduced_chi2);
+  }
 
   std::cout << std::endl;
   std::cout << "Individual Run Results (Ge Peak mu):" << std::endl;
-
   for (size_t i = 0; i < mu.size(); ++i) {
     std::cout << std::left << std::setw(50) << run_names[i] << ": "
               << std::fixed << std::setprecision(4) << mu[i] << " +/- "
@@ -310,9 +194,9 @@ void Fits() {
   Float_t weighted_sum = 0.0;
   for (size_t i = 0; i < mu.size(); ++i) {
     if (mu_errors[i] > 0) {
-      Float_t weight = 1.0 / (mu_errors[i] * mu_errors[i]);
-      weighted_sum += mu[i] * weight;
-      sum_weights += weight;
+      Float_t w = 1.0 / (mu_errors[i] * mu_errors[i]);
+      weighted_sum += mu[i] * w;
+      sum_weights += w;
     }
   }
   if (sum_weights > 0) {

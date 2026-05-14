@@ -9,10 +9,12 @@ void InitialPlots(
     const std::vector<TString> output_names,
     const std::vector<Int_t> colors = PlottingUtils::GetDefaultColors()) {
 
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
   Int_t n_files = output_names.size();
   for (Int_t i = 0; i < n_files; i++) {
     TString output_name = output_names.at(i);
-    TString output_filepath = "root_files/" + output_name + ".root";
+    TString output_filepath =
+        project_root + "/root_files/" + output_name + ".root";
 
     TFile *output = new TFile(output_filepath, "UPDATE");
     TTree *features_tree = static_cast<TTree *>(output->Get("features"));
@@ -38,8 +40,8 @@ void InitialPlots(
 
     Int_t color = colors.at(i);
     PlottingUtils::ConfigureAndDrawHistogram(long_integral_hist, color);
-    PlottingUtils::SaveFigure(canvas, output_name + "_long_integral",
-                              "", PlotSaveOptions::kLOG);
+    PlottingUtils::SaveFigure(canvas, output_name + "_long_integral", "",
+                              PlotSaveOptions::kLOG);
 
     output->cd();
     long_integral_hist->Write("long_integral", TObject::kOverwrite);
@@ -50,14 +52,22 @@ void InitialPlots(
 }
 
 void InitialProcessing() {
-  InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT);
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT, project_root + "/plots",
+                                project_root + "/root_files");
 
   Int_t max_threads = 16;
   Bool_t reprocess = kTRUE;
 
   if (reprocess) {
+    const TString input_dir = project_root + "/root_files/";
+    std::vector<TString> input_filepaths;
+    Int_t n_inputs = Int_t(Constants::ALL_FILENAMES.size());
+    for (Int_t i = 0; i < n_inputs; i++) {
+      input_filepaths.push_back(input_dir + Constants::ALL_FILENAMES.at(i));
+    }
     WaveformProcessingUtils::ProcessFilesParallel(
-        Constants::ALL_FILEPATHS, Constants::ALL_OUTPUT_NAMES,
+        input_filepaths, Constants::ALL_OUTPUT_NAMES,
         Constants::DEFAULT_PROCESSING_CONFIG, max_threads);
   }
 

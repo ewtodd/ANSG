@@ -32,7 +32,8 @@ Int_t GammaColor(Float_t t) {
 void ComputeAndPlot(const TString output_name, const TString label,
                     TGraph *alpha_template, TGraph *gamma_template,
                     TGraph *compare_template, Bool_t alpha_is_below) {
-  TString filepath = "root_files/" + output_name + ".root";
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  TString filepath = project_root + "/root_files/" + output_name + ".root";
   TFile *file = TFile::Open(filepath, "READ");
   if (!file || file->IsZombie()) {
     std::cout << "Error: Could not open " << filepath << std::endl;
@@ -229,7 +230,8 @@ void ComputeAndPlot(const TString output_name, const TString label,
 }
 
 TGraph *LoadTemplate(const TString output_name) {
-  TString filepath = "root_files/" + output_name + ".root";
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  TString filepath = project_root + "/root_files/" + output_name + ".root";
   TFile *file = TFile::Open(filepath, "READ");
   if (!file || file->IsZombie())
     return nullptr;
@@ -244,7 +246,10 @@ TGraph *LoadTemplate(const TString output_name) {
 }
 
 void AverageWaveforms() {
-  InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT);
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT,
+                                project_root + "/plots",
+                                project_root + "/root_files");
 
   TGraph *alpha_template = LoadTemplate(Constants::AM241);
   TGraph *gamma_template = LoadTemplate(Constants::NA22);

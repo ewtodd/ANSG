@@ -1,4 +1,5 @@
 #include "Constants.hpp"
+#include "IOUtils.hpp"
 #include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
 #include <TFile.h>
@@ -13,8 +14,8 @@
 static std::mutex print_mutex;
 
 Bool_t AddHistogram(TString filename) {
-  TString filepath = "root_files/" + filename + ".root";
-  TFile *file = new TFile(filepath, "UPDATE");
+  TFile *file =
+      IO::OpenForWriting("filtered/" + filename + ".root", "UPDATE");
 
   TString treeType = Constants::USE_FILTERED ? "filtered" : "unfiltered";
 
@@ -111,7 +112,9 @@ Bool_t AddHistogram(TString filename) {
 }
 
 void Histogram() {
-  InitUtils::SetROOTPreferences();
+  const TString project_root = Paths::ProjectRootOf(__FILE__);
+  InitUtils::SetROOTPreferences(PlotSaveFormat::kPNG, project_root + "/plots",
+                                project_root + "/root_files");
   ROOT::EnableThreadSafety();
 
   std::vector<TString> filenames = Constants::ALL_DATASETS;
